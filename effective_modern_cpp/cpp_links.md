@@ -77,28 +77,36 @@ CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하�
 ## 기본부터
 [RAII, stack/heap, 메모리 구조](https://woo-dev.tistory.com/89?category=882879)
 
+
 * RAII? Resource Acquisition is initialization.
 자원 획득은 초기화 시점에 일어나야된다 라는 뜻. 초기화는 객체의 올바른 자원 획득을 보장해야 한다는 뜻.
 상세 내용은 링크 참조.
 
 ## 스마트 포인터 링크
 [C++ UniquePtr](https://woo-dev.tistory.com/110)
+
 [C++ SharedPtr](https://woo-dev.tistory.com/111)
+
 [C++ WeakPtr](https://woo-dev.tistory.com/113)
+
 [참조카운팅](https://woo-dev.tistory.com/61)
+
 
 # Allocator란?
 ### Allocator 설명 링크
 [Allocator를 쓰는 이유](https://uncertainty-momo.tistory.com/53)
+
 [malloc과 new의 차이](https://uncertainty-momo.tistory.com/47)
 
 # 타입 캐스팅의 종류?
 ## dynamic_cast, static_cast
 [다이나믹캐스팅, 스태틱캐스팅, 업캐스팅, 다운캐스팅](https://sexycoder.tistory.com/15)
+
 [정적 지역 변수](https://dataonair.or.kr/db-tech-reference/d-lounge/technical-data/?mod=document&uid=235959)
 
 ## reference_wrapper?
 [reference_wrapper](https://movahws.tistory.com/48)
+
 [decltype과 auto](http://egloos.zum.com/sweeper/v/3148281)
 
 ## reinterpret_cast
@@ -106,8 +114,6 @@ CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하�
 # 람다함수?
 ## lambda function example
 [람다함수 및 필요성?](https://blockdmask.tistory.com/491)
-
-
 # Stream 관련 모음
 ## string formatting
 [Stream 없이 formatting하기?](https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf)
@@ -115,7 +121,9 @@ CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하�
 # 함수 바인딩
 ## std::bind, std::placeholders
 [bind와 placeholder 사용 예](https://happynotepad.tistory.com/27)
+
 [bind와 std::function 연결 예](https://yhwanp.github.io/2019/09/15/std-function-and-std-bind/)
+
 [멤버함수 bind방법](https://stackoverflow.com/questions/37636373/how-stdbind-works-with-member-functions)
 
 

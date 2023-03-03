@@ -11,6 +11,7 @@
   - [초기화 리스트란?](#초기화-리스트란)
   - [virtual 등등](#virtual-등등)
   - [std::move, forward 등등](#stdmove-forward-등등)
+  - [public, protected, private.](#public-protected-private)
 - [스마트포인터](#스마트포인터)
   - [스마트 포인터의 종류](#스마트-포인터의-종류)
   - [기본부터](#기본부터)
@@ -32,8 +33,10 @@
   - [std::bind, std::placeholders](#stdbind-stdplaceholders)
 - [컴파일러](#컴파일러)
   - [맹글링과 디맹글링](#맹글링과-디맹글링)
-
-
+  - [상수?](#상수)
+  - [가변길이템플릿 관련](#가변길이템플릿-관련)
+  - [템플릿 메타프로그래밍 링크 두개](#템플릿-메타프로그래밍-링크-두개)
+  - [assert및 static\_assert](#assert및-static_assert)
 
 # 개요
 CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하는 페이지
@@ -71,6 +74,9 @@ CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하�
 
 ## std::move, forward 등등
 [자세히 나온 블로그](https://jungwoong.tistory.com/53)
+
+## public, protected, private.
+[상속자 태그 종류 및 용법](https://hwan-shell.tistory.com/25)
 
 # 스마트포인터
 ## 스마트 포인터의 종류
@@ -114,10 +120,10 @@ CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하�
 ## typename, class
 [typename과 class의 용법 차이?](https://blog.naver.com/PostView.nhn?blogId=oh-mms&logNo=222030206308)
 
+
 # 람다함수?
 ## lambda function example
 [람다함수 및 필요성?](https://blockdmask.tistory.com/491)
-
 
 # Stream 관련 모음
 ## string formatting
@@ -129,7 +135,18 @@ CPP 제품을 유지보수하기 시작하면서, 모르는 cpp문법 정리하�
 [bind와 std::function 연결 예](https://yhwanp.github.io/2019/09/15/std-function-and-std-bind/)
 [멤버함수 bind방법](https://stackoverflow.com/questions/37636373/how-stdbind-works-with-member-functions)
 
-
 # 컴파일러
 ## 맹글링과 디맹글링
 [맹글링과 디맹글링?](https://iwantadmin.tistory.com/55)
+## 상수?
+[리터럴 상수](https://boycoding.tistory.com/155)
+[constexpr](http://egloos.zum.com/sweeper/v/3147813)
+## 가변길이템플릿 관련
+[가변길이 템플릿?](https://modoocode.com/290)
+[템플릿으로 배열 길이를 구하기](https://karupro.tistory.com/13)
+## 템플릿 메타프로그래밍 링크 두개
+[링크1](https://modoocode.com/221)
+[링크2](https://modoocode.com/222)
+
+## assert및 static_assert
+[static_assert란?](https://dydtjr1128.github.io/cpp/2019/06/03/Cpp-static_assert.html)

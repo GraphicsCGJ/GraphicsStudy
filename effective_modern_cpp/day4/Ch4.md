@@ -34,6 +34,9 @@
   - [클로저 클래스](#클로저-클래스)
   - [람다 예](#람다-예)
 - [Item 31. 기본 갈무리 모드를 피해라.](#item-31-기본-갈무리-모드를-피해라)
+- [Item 32. 객체를 클로저 안으로 이동하려면 초기화 갈무리를 사용하라.](#item-32-객체를-클로저-안으로-이동하려면-초기화-갈무리를-사용하라)
+- [Item 33. std::forward를 통해 전달할 auto\&\& 매개변수는 decltype을 사용해라.](#item-33-stdforward를-통해-전달할-auto-매개변수는-decltype을-사용해라)
+- [Item 34. std::bind보다 람다를 선호해라.](#item-34-stdbind보다-람다를-선호해라)
 
 
 # Item 26. 보편 참조에 대한 Overload를 피하라
@@ -696,12 +699,656 @@ std::find_if(container.begin(), container,end(), [](int val) {return 0 < val && 
 ```
 
 # Item 31. 기본 갈무리 모드를 피해라.
-c++ 11에서 기본 갈무리 모드는 2개가 있다.
-값 갈무리와 참조 갈무리 이다.
-=와 &를 의미하는 것으로 by value, by reference이다.
 
-이유는 크게 2가지인데,
-참조 갈무리가 대상을 잃을 일이 없을 것 같지만 실제론 잃을 수 있기 때문이고,
-자기 완결적(self contained)으로 끝날 것 같지만 그렇지 않다.
+```cpp
+using FilterContainer =
+  std::vector<std::function<bool(int)>>;
 
-* self contained?
+FilterContainer filters;
+```
+
+에서 람다함수로 필터를 하나 추가한다고 하자.
+
+```cpp
+filters.emplace_back(
+  [](int value) { return value % 5 == 0; }
+);
+```
+위 예에선 divisor (나누려는놈, 제수) 가 5로 고정인데, 이걸 변경할 필요가 생길 수도 있다.
+
+```cpp
+using FilterContainer =
+  std::vector<std::function<bool(int)>>;
+
+FilterContainer filters;
+
+void addDivisorFilter() {
+  auto calc1 = computeSomeValue1();
+  auto calc2 = computeSomeValue2();
+
+  auto divisor = computeDivisor(calc1, calc2);
+
+  filters.emplace_back(
+    [&] // 기본 참조 갈무리.
+    (int value) {
+      return value % divisor == 0;
+    }
+  );
+}
+```
+
+이 경우 divisor에 대한 참조를 잃을 수도 있는데, 간단하게 생각해보면 divisor는 **addDivisorFilter** 에 걸려있는 놈이다. 따라서 해당 scope가 벗겨지면 이놈도 사라진다. 이건 UB를 유발한다.
+
+```cpp
+filters.emplace_back(
+    [&divisor] // 기본 참조 갈무리.
+    (int value) {
+      return value % divisor == 0;
+    }
+  );
+```
+얘도 똑같다. 원본의 scope는 변경되지 않음.
+
+람다가 바깥으로 나갈 일이 없는 경우는 괜찮다.
+
+```cpp
+template<typename C>
+void workWithContainer(const C&) {
+  auto calc1 = computeSomeValue1();
+  auto calc2 = computeSomeValue2();
+
+  auto divisor = computeDivisor(calc1, calc2);
+
+  using ContElemT = typename C::value_type;
+
+  using std::begin;
+  using std::end;
+
+  if (std::all_of(
+    begin(container), end(container),
+    [&]
+    (const ContElemT& value) {
+    // (const auto& value) {  // c++ 14버전
+      return value % divisor == 0;
+    }
+  )) {
+    ...
+  }
+  else {
+    ...
+  }
+}
+```
+
+하지만 이 경우에도, 다른 동료가 해당 람다가 정상적으로 필터링 한다고 생각하고 람다 자체만 띠어가서 다른 코드에 심어버릴 수도 있다.
+
+참조를 떼는 것이 방법이 될 순 있다.
+
+```cpp
+using FilterContainer =
+  std::vector<std::function<bool(int)>>;
+
+FilterContainer filters;
+
+void addDivisorFilter() {
+  auto calc1 = computeSomeValue1();
+  auto calc2 = computeSomeValue2();
+
+  auto divisor = computeDivisor(calc1, calc2);
+
+  filters.emplace_back(
+    [=] // 기본 복사 갈무리.
+    (int value) {
+      return value % divisor == 0;
+    }
+  );
+}
+```
+
+근데 만약 포인터를 넘겨주는 코드를 작성한다면 포인터 삭제 시에 문제가 된다.
+
+다음 객체를 생각해보자.
+
+```cpp
+using FilterContainer =
+  std::vector<std::function<bool(int)>>;
+
+FilterContainer filters;
+
+class Widget {
+public:
+  void addFilter() const;
+private:
+  int divisor;
+};
+
+void Widget::addFilter() const {
+  filters.emplace_back(
+    [=]
+    (int value) {
+      return value % divisor;
+    }
+  )
+}
+```
+
+딱 보면 안전해보이지만 안전하지 않다.
+
+갈무리는 람다가 생성된 범위 안에서 보이는 지역 변수에만 적용이된다. 근데 divisor 자체는 Widget의 멤버이기 때문에, 다른 함수로 갈무리가 될 수가 없다.
+
+
+```cpp
+void Widget::addFilter() const {
+  filters.emplace_back(
+    [divisor]
+    (int value) {
+      return value % divisor;
+    }
+  )
+}
+```
+
+명시적으로 넣어도 당연히 컴파일되지 않는다.
+
+명시적으로 못잡는 원인은 this가 생략되었기 때문이다.
+
+모든 static이 아닌 멤버변수는 객체에 붙어있고, 이 말은 this포인터에 붙어있단 얘기다.
+
+```cpp
+void Widget::addFilter() const {
+  filters.emplace_back(
+    [=]
+    (int value) {
+      return value % divisor;
+    }
+  )
+}
+```
+
+여기서 갈무리되는 놈은 this가 되고 divisor는 this->divisor가 된다 즉,
+
+```cpp
+void Widget::addFilter() const {
+  auto currentObjectPtr = this;
+  filters.emplace_back(
+    [currentObjectPtr]
+    (int value) {
+      return value % currentObjectPtr->this;
+    }
+  )
+}
+```
+
+따라서 이렇게 만들면 객체 수명에 의존하게 될 것이고 의도한대로의 값 복사는 일어나지 않는다.
+
+그러면 스마트 포인터는 안전할까?
+
+```cpp
+using FilterContainer =
+  std::vector<std::function<bool(int)>>;
+
+FilterContainer filters;
+
+class Widget {
+public:
+  void addFilter() const;
+private:
+  int divisor;
+};
+
+void Widget::addFilter() const {
+  filters.emplace_back(
+    [=]
+    (int value) {
+      return value % divisor;
+    }
+  )
+}
+
+
+void doSomeWork() {
+  auto pw = std::make_unique<Widget>;
+
+  pw->addFillter();
+}
+```
+
+이렇게 하면, make_unique로 생성된 Widget객체에 대한 스마트 포인터를 통해 필터에 추가한다.
+
+그런데 pw의 수명은 doSomeWork()에 의존된다.
+
+따라서 this객체는 생성 직후 파괴가 된다. 이러면 전역 컨테이너 접근이 UB가 되겠다.
+
+이 문제는 지역적으로 값을 복사해서 넣으면 사실 해결된다.
+
+```cpp
+void Widget::addFilter() const {
+  auto divisorCopy = divisor;
+
+  filters.emplace_back(
+    [divisorCopy] // 기본 값 복사 갈무리
+    // [=] // 기본 값 복사 갈무리
+    // [divisor = divisor] // c++14 버전. divisor 값을 클로저에 '복사' 하는 것이 보장된다.
+    (int value) {
+      return value % divisorCopy;
+    }
+  )
+}
+```
+
+기본 갈무리를 피해야 하는 다른 이유는 static storage duration에 의존하는 변수들이다.
+
+예를 들면 전역 변수나 static 변수, 함수 등은 람다 안에서 사용할 수 있지만 이 값들은 값 갈무리된 값이 아니다.
+
+진짜 전역 영역을 사용하는 놈들이다.
+
+위 예제를 바꿔서
+
+```cpp
+using FilterContainer =
+  std::vector<std::function<bool(int)>>;
+
+FilterContainer filters;
+
+void addDivisorFilter() {
+  static auto calc1 = computeSomeValue1();
+  static auto calc2 = computeSomeValue2();
+
+  static auto divisor = computeDivisor(calc1, calc2);
+
+  filters.emplace_back(
+    [=] // 기본 복사 갈무리.
+    (int value) {
+      return value % divisor == 0;
+    }
+  );
+}
+```
+를 쓰게 되면 복사 갈무리 되는 값은 아무것도 없다. 그저 스택영역 내에 있는 함수 스코프의 static변수들을 쓰는 것이다.
+
+즉, 자기완결적인 람다가 아니게된다.
+
+
+# Item 32. 객체를 클로저 안으로 이동하려면 초기화 갈무리를 사용하라.
+
+람다 이동 초기화를 사용하는 방식이 c++ 14랑 c++ 11의 방법이 크게 다르다.
+
+c++11에서의 방법이 구지다고 생각돼서 c++ 14에서 다시 만든거라 생각하면 좋다.
+
+우선 c++ 14에서
+
+```cpp
+class Widget {
+public:
+  ...
+  bool isValidate() const ;
+  bool isArchived() const ;
+
+private:
+  ...
+};
+
+auto pw = std::make_unique<Widget>();
+
+auto func =
+[pw = std::move(pw)]
+() {
+  return pw->isValidate() && pw->isArchived();
+};
+
+```
+
+와 같이 초기화 갈무리에 이동연산을 더해서 쓸 수 있다.
+
+c++ 11에선 어떨까..?
+
+```cpp
+
+class IsValAndArch {
+public:
+  using DataType=std::unique_ptr<Widget>;
+
+  explicit IsValAndArch(DataType&& ptr) : pw(std::move(ptr)){}
+
+  bool operator()() const {
+    return pw->isValidate() && pw->isArchived();
+  }
+
+private:
+  DataType pw;
+};
+
+auto func = IsValAndArch(std::make_unique<Widget>());
+```
+
+일단 길다.
+
+따라서 **std::bind**라는 놈을 이용해 객체를 만들어 사용하면 위와같이 복잡하게 할 필요가 없다.
+
+예를 들어 아래의 c++ 14코드가 있다 치자.
+
+```cpp
+std::vector<double> data;
+
+auto func = [data = std::move(data)] {
+  ... // data 처리
+};
+```
+아주 쉽다. 이걸 c++ 11로 본다면 어떨까?
+
+```cpp
+std::vector<double> data;
+
+auto func = std::bind(
+  [] (const std::vector<double>& data) {
+    ... // data 처리
+  },
+  std::move(data)
+);
+
+은근 비슷하다.
+
+std::bind를 통해 만들어진 객체는 바인드 객체라고 하는데,
+
+바인드 사용법을 하나 예를 들면
+
+```cpp
+// 모두의 코드 참고
+void subtract(int x, int y) {
+  std::cout << x << " - " << y << " = " << x - y << std::endl;
+}
+
+auto subtract_from_2 = std::bind(subtract, std::placeholders::_1, 2);
+
+subtract_from_2(3);  // 3 - 2 를 계산한다.
+```
+
+가 있다.
+
+이 경우엔, subtract_from_2는 하나의 객체가 되고, 객체 멤버에 operator()(int placeholder) 같은걸 들고있게 된다.
+
+다시 돌아오면, 이런 느낌으로 람다에 대한 이동 초기화를 할 수 있다.
+
+
+근데 기본적으로 람다 함수는 const이다. 매개변수로 들어온 변수를 내부에서 변경할 수가 없다.
+
+따라서 mutable을 쓰면 해결이 된다.
+
+```cpp
+std::vector<double> data;
+
+auto func = std::bind(
+  [] (std::vector<double>& data) mutable {
+    ... // data 처리
+  },
+  std::move(data)
+);
+
+```
+
+그럼 다시 아까의 코드로 돌아오면
+```cpp
+auto pw = std::make_unique<Widget>();
+
+// c++ 14
+auto func =
+[pw = std::move(pw)]
+() {
+  return pw->isValidate() && pw->isArchived();
+};
+
+auto func11 = std:bind(
+  [](const std::unique_ptr<Widget>& pw) { // 왼값이동이 됨.
+    return pw->isValidate() && pw->isArchived();
+  },
+  std::make_unique<Widget>()
+);
+```
+이 되겠다.
+
+# Item 33. std::forward를 통해 전달할 auto&& 매개변수는 decltype을 사용해라.
+
+정말 짧은 챕터라 간단하게 넘어가자.
+
+형식 연역의 대표적인 auto와 template 중 auto는 T라는 타입을 지정하는 놈이 없다.
+
+따라서 auto를 통한 연역된 변수의 타입이 필요할 땐 decltype을 쓰란 얘기다.
+
+```cpp
+
+// 문제상황. 타입을 뭐로쓰지?
+auto f = [] (auto&& x) {
+  return normalize(std::forward<???>(x));
+}
+
+// 아래처럼 쓰면 된다.
+auto f = [] (auto&& x) {
+  return normalize(std::forward<decltype(x)>(x));
+}
+
+```
+
+# Item 34. std::bind보다 람다를 선호해라.
+
+c++ 11에선 거의 대부분
+
+c++ 14에선 거의 항상 람다가 우월하다
+
+책에선 그 예제를 경보 코드를 통해서 알려준다.
+
+```cpp
+// 시간상의 한 지점을 대표하는 형식 별칭
+using Time = std::chrono::steady_clock::time_point;
+
+// enum class 에 관해서는 항목 10을 조라
+enum class Sound { Beep, Siren, Whistle };
+
+// 시간 길이를 나타내는 형식에 대한 별칭 선언
+using Duration = std::chrono::steady_clock::duration;
+
+// 시간 t 에서 소리 s 를 기간 d 만큼 출력한다
+void setAlarm(Time t, Sound s, Duration d);
+
+// setSoundL은
+// 직접 지정해서 한 시간 후부터 30초간 울리게하는 함수 객체이다.
+auto setSoundL =
+  [](Sound s)
+  {
+    using namespace std::chrono;
+
+    setAlarm(steady_clock::now() + hours(1),
+      s,
+      seconds(30));
+  };
+```
+
+c++14에선 조금 더 간결하게 표현 가능하다.
+
+```cpp
+auto setSoundL =
+  [](Sound s)
+  {
+    using namespace std::chrono;
+    using namespace std::literals; // 1h, 30s 사용가능
+
+    setAlarm(steady_clock::now() + 1h,
+      s,
+      30s);
+  };
+```
+
+이걸 bind를 통해 작성하면 어떻게 될까?
+
+```cpp
+using namespace std::chrono;
+using namespace std::literals;
+
+using namespace std::placeholders;  // _1 을 사용하는 데 필요함
+
+auto setSoundB =
+  std::bind(setAlarm,
+    steady_clock::now + 1h,
+    _1,
+    30s
+  );
+```
+
+람다 버전에선 **steady_clock::now + 1h** 가 헷갈릴 여지가 없다.
+
+람다함수 setSoundL 내의 setAlarm이 호출되고 1시간 후에 알람이 울릴 것이다.
+
+근데 std::bind의 경우 **steady_clock::now + 1h** 가 std::bind 객체로 전달이 된다.
+즉 std::bind 객체의 멤버가 되어버린다. 따라서 std:bind를 호출하고 1시간 후에 알람이 울리게된다.
+
+따라서 setAlarm이 호출되고나서 다시 측정하라고 알려줘야 한다. 이로 인해 std::bind를 두개 더 쓴다.
+
+```cpp
+auto setSoundB =
+  std::bind(setAlarm,
+    std::bind(std::plus<>(), // c++ 14에선 표준 연산자 템플릿은 생략 가능
+      std::bind(steady_clock::now),
+      1h
+    )
+    steady_clock::now + 1h,
+    _1,
+    30s
+  );
+```
+
+이래도 bind가 좋으면 시력문제라고 함.
+
+여기에 근데 overload가 들어가면 골치아파진다.
+
+```cpp
+void setAlarm(Time t, Sound s, Duration d, Volume v);
+auto setSoundL =
+  [](Sound s)
+  {
+    using namespace std::chrono;
+    using namespace std::literals; // 1h, 30s 사용가능
+
+    setAlarm(steady_clock::now() + 1h,
+      s,
+      30s);
+  };
+
+auto setSoundB =
+  std::bind(setAlarm,
+    std::bind(std::plus<>(), // c++ 14에선 표준 연산자 템플릿은 생략 가능
+      std::bind(steady_clock::now),
+      1h
+    )
+    steady_clock::now + 1h,
+    _1,
+    30s
+  );
+
+```
+
+만약 위와같이 setAlarm이 overload되었다고 치자.
+
+그럼 람다는 알아서 잘 호출을 한다.
+
+그런데 bind에선 overload를 구분할 수가 없다. 즉 컴파일이 되지 않는다.
+
+이런 경우엔 아래와 같이 우회해야 한다.
+
+```cpp
+using SetAlarm3ParamType = void(*)(Time t, Sound s, Duration d);
+
+auto setSoundB =
+  std::bind(static_cast<SetAlarm3ParamType>(setAlarm),
+    std::bind(std::plus<steady_clock::time_point>(),
+      std::bind(steady_clock::now),
+      1h),
+    _1,
+    30s);
+```
+
+상당히 혐오스럽다.
+
+또한 이런 것 말고도 차이가 하나 더 있는데, 보통의 경우 c++ 컴파일러는 보통함수에 대해 인라인화(#define) 해준다.
+
+근데 std::bind의 경우는 함수 포인터를 들고가는 것이고 컴파일러는 함수포인터에 대해선 인라인할 가능성이 낮아진다.
+
+따라서 성능 상에 손해가 있을 수 있다.
+
+추가로, std::bind와 람다는 인수에서도 차이가 난다.
+
+std::bind는 람다 없이 쓰면 그 자체로 코드를 삽입할 수가 없어 std 함수들을 써서 표현을 해야한다.
+
+```cpp
+auto betweenL =
+  [lowVal, highVal]
+  (const auto& val) {
+    return lowVal <= val && val <= highVal;
+  };
+
+auto betweenB =
+  std::bind(std::logical_and<>(),
+    std::bind(std::less_equal<>(), lowVal, _1),
+    std::bind(std::less_equal<>(), _1, highVal),);
+```
+
+c++11은 표준 연산자 템플릿 생략이 안돼서 더 끔찍하다.
+
+마지막으로, 값인지 참조인지 알기가 어렵다.
+
+```cpp
+enum class CompLevel { Low, Normal, High };
+
+// 압축 복사본을 만드는 함수 compress
+Widget compress(const Widget& w, CompLevel lev);
+Widget w; // 원본
+
+using namespace placeholders;
+auto compressRateB = std::bind(compress, w, _1); // 문제 1. w는 값일까 참조일까?
+
+auto compressRateL = [w] (CompLevel lev) {
+  return compress(w, lev);
+};
+
+compressRateL(CompLevel::High); // 매개변수가 값으로 전달된다.
+compressRateB(CompLevel::High); // 문제 2. 매개변수가 어떻게 전달될까?
+```
+
+
+* **문제 1**의 해답은 값으로 전달된다. 바인드 객체에 값이 복사되어 저장되어있다.
+* **문제 2**의 해답은 참조로 전달된다. 바인드 객체에 참조값이 전달되어 사용된다.
+이렇게 보내야 객체의 함수 호출 연산에서 완벽 전달을 수행할 수 있기 때문이다.
+
+즉 이런 특징들을 종합했을 때 c++ 14에선 bind를 쓸 일이 아예 없다고 봐도 된다.
+c++ 11에선 아래 두 가지 경우에 대해선 쓸 수 있다.
+
+* 이동 갈무리
+c++ 람다는 이동갈무리를 지원하지 않아서 이 때는 std::bind를 써야한다.
+
+* 다형적 함수 객체
+바인드 객체에 대한 함수 호출로 넘어가는 인자들은 완벽 전달로 넘어가기 때문에, 아무 형식이나 다 받을 수 있다.
+이는 객체의 템플릿화된 함수 호출 연산자와 묶으려고 할 때 유용하다 (아래에 이어 설명한다)
+
+객체의 템플릿화된 함수 호출 연산자와 묶는다가 무슨 뜻일까?
+
+```cpp
+class PolyWidget {
+public:
+  template<typename T>
+  void operator()(const T& param) const;
+  ...
+
+};
+
+PolyWidget pw;
+auto boundPW = std::bind(pw, _1); // 객체의 템플릿화된 함수가 bind객체의 operator()가 된다.
+
+boundPW(1930);          // int로 연역
+boundPW(nullptr);       // nullptr로 연역
+boundPW("Rosebud");     // 문자열로 연역
+
+auto boundPW_lambda = // c++ 14에선 람다를 통해 간단히 가능
+  [pw](const auto& param) {
+    pw(param);
+  };
+```
+
+전반적으로 c++14에서 가장 유용한 것은 인수 및 리턴에 auto를 넣을 수 있는게 정말 유용한 것 같다.

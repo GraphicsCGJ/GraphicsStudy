@@ -62,13 +62,13 @@ void main() {
 VKSL 문법으로 셰이더를 작성 -> SPIRV 로 변경 필요
 ```c++
 const string vksl = {
-	"void main() { 										\n"
+	"void main() { 							\n"
 	" 	vec2 pos[3] = vec2[3](vec2(-0.5, 0.5), 			\n"
-	" 						vec2( 0.5, 0.5), 			\n"
-	" 						vec2( 0.0, -0.5)); 			\n"
-	" 													\n"
-	" gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0); \n"
-	"} 													\n"
+	" 			vec2( 0.5, 0.5), 			\n"
+	" 			vec2( 0.0, -0.5)); 			\n"
+	" 								\n"
+	" 	gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0); 	\n"
+	"} 								\n"
 };
 
 auto spirv = Spirv_compiler().compile(Shader_type::vertex, vksl);
@@ -78,18 +78,18 @@ auto spirv = Spirv_compiler().compile(Shader_type::vertex, vksl);
 
 ```c++
 typedef struct VkShaderModuleCreateInfo {
-	VkStructureType 			sType; 		// 구조체 타입 정의
-	const void* 				pNext; 		// NULL 
+	VkStructureType 		sType; 		// 구조체 타입 정의
+	const void* 			pNext; 		// NULL 
 	VkShaderModuleCreateFlags 	flags; 
-	size_t 						codeSize; 	// SPIRV 크기
-	const uint32_t* 			pCode; 		// SPIRV 포인터
+	size_t 				codeSize; 	// SPIRV 크기
+	const uint32_t* 		pCode; 		// SPIRV 포인터
 } VkShaderModuleCreateInfo;
 
 VkResult vkCreateShaderModule( 
-	VkDevice 						device, 		// 디바이스
+	VkDevice 			device, 	// 디바이스
 	const VkShaderModuleCreateInfo* pCreateInfo,	// 정의한 셰이더 모듈 구조체 포인터
 	const VkAllocationCallbacks* 	pAllocator, 	// NULL
-	VkShaderModule* 				pShaderModule);	// 생성된 셰이더 모듈 받는 변수 포인터
+	VkShaderModule* 		pShaderModule);	// 생성된 셰이더 모듈 받는 변수 포인터
 
 // 생성하려는 셰이더 모듈 정의
 VkShaderModuleCreateInfo create_info {}; 
@@ -113,8 +113,8 @@ assert(result == VK_SUCCESS);
 
 
 void vkDestroyShaderModule( 
-	VkDevice 						device,
-	VkShaderModule 					shaderModule, 
+	VkDevice 			device,
+	VkShaderModule 			shaderModule, 
 	const VkAllocationCallbacks* 	pAllocator);
 	
 // 생성한 셰이더 모듈 파괴
@@ -127,20 +127,20 @@ vkDestroyShaderModule(device_, shader_module, nullptr);
 
 ```c++
 typedef struct VkPipelineLayoutCreateInfo { 
-	VkStructureType 				sType; 					// 구조체 타입 정의
-	const void* 					pNext; 					// NULL
+	VkStructureType 		sType; 				// 구조체 타입 정의
+	const void* 			pNext; 				// NULL
 	VkPipelineLayoutCreateFlags 	flags; 					
-	uint32_t 						setLayoutCount; 		// 레이아웃에 포함될 디스크립터 셋의 수
+	uint32_t 			setLayoutCount; 		// 레이아웃에 포함될 디스크립터 셋의 수
 	const VkDescriptorSetLayout* 	pSetLayouts; 			// 디스크립터 셋 레이아웃 변수나 배열의 포인터
-	uint32_t 						pushConstantRangeCount;
-	const VkPushConstantRange* 		pPushConstantRanges;
+	uint32_t 			pushConstantRangeCount;
+	const VkPushConstantRange* 	pPushConstantRanges;
 } VkPipelineLayoutCreateInfo;
 
 VkResult vkCreatePipelineLayout( 
-	VkDevice 							device, 		
+	VkDevice 				device, 		
 	const VkPipelineLayoutCreateInfo* 	pCreateInfo, 		// 구조체의 포인터
 	const VkAllocationCallbacks* 		pAllocator, 		// NULL
-	VkPipelineLayout* 					pPipelineLayout);	// 생성된 레이아웃을 얻는 변수의 포인터
+	VkPipelineLayout* 			pPipelineLayout);	// 생성된 레이아웃을 얻는 변수의 포인터
 
 
 // 생성하려는 파이프라인 레이아웃 정의
@@ -165,8 +165,8 @@ assert(result == VK_SUCCESS);
 
 
 void vkDestroyPipelineLayout( 
-	VkDevice 						device, 
-	VkPipelineLayout 				pipelineLayout, 
+	VkDevice 			device, 
+	VkPipelineLayout 		pipelineLayout, 
 	const VkAllocationCallbacks* 	pAllocator);
 
 // 생성한 파이프라인 레이아웃 파괴
@@ -179,37 +179,37 @@ vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
 
 ```c++
 typedef struct VkGraphicsPipelineCreateInfo { 
-	VkStructureType 									sType; 				// 구조체 타입
-	const void* 										pNext; 				// NULL
-	VkPipelineCreateFlags 								flags; 
-	uint32_t 											stageCount; 		// 셰이더 스테이지 수
-	const VkPipelineShaderStageCreateInfo* 				pStages; 			// 셰이더 스테이지 배열의 포인터
-	const VkPipelineVertexInputStateCreateInfo* 		pVertexInputState; 	
-	const VkPipelineInputAssemblyStateCreateInfo* 		pInputAssemblyState; 
-	const VkPipelineTessellationStateCreateInfo* 		pTessellationState;
-	const VkPipelineViewportStateCreateInfo* 			pViewportState; 
-	const VkPipelineRasterizationStateCreateInfo* 		pRasterizationState; 
-	const VkPipelineMultisampleStateCreateInfo* 		pMultisampleState; 
-	const VkPipelineDepthStencilStateCreateInfo* 		pDepthStencilState; 
-	const VkPipelineColorBlendStateCreateInfo* 			pColorBlendState; 
-	const VkPipelineDynamicStateCreateInfo* 			pDynamicState; 
-	VkPipelineLayout 									layout; 			// 파이프라인 레이아웃
-	VkRenderPass 										renderPass; 		// 렌더패스 
-	uint32_t 											subpass; 			// 렌더패스의 서브패스 인덱스
-	VkPipeline 											basePipelineHandle; 
-	int32_t 											basePipelineIndex; 
+	VkStructureType 				sType; 			// 구조체 타입
+	const void* 					pNext; 			// NULL
+	VkPipelineCreateFlags 				flags; 
+	uint32_t 					stageCount; 		// 셰이더 스테이지 수
+	const VkPipelineShaderStageCreateInfo* 		pStages; 		// 셰이더 스테이지 배열의 포인터
+	const VkPipelineVertexInputStateCreateInfo* 	pVertexInputState; 	
+	const VkPipelineInputAssemblyStateCreateInfo* 	pInputAssemblyState; 
+	const VkPipelineTessellationStateCreateInfo* 	pTessellationState;
+	const VkPipelineViewportStateCreateInfo* 	pViewportState; 
+	const VkPipelineRasterizationStateCreateInfo* 	pRasterizationState; 
+	const VkPipelineMultisampleStateCreateInfo* 	pMultisampleState; 
+	const VkPipelineDepthStencilStateCreateInfo* 	pDepthStencilState; 
+	const VkPipelineColorBlendStateCreateInfo* 	pColorBlendState; 
+	const VkPipelineDynamicStateCreateInfo* 	pDynamicState; 
+	VkPipelineLayout 				layout; 		// 파이프라인 레이아웃
+	VkRenderPass 					renderPass; 		// 렌더패스 
+	uint32_t 					subpass; 		// 렌더패스의 서브패스 인덱스
+	VkPipeline 					basePipelineHandle; 
+	int32_t 					basePipelineIndex; 
 } VkGraphicsPipelineCreateInfo;
 ```
 
 ### 버텍스/프래그먼트 스테이지
 ```c++
 typedef struct VkPipelineShaderStageCreateInfo { 
-	VkStructureType 					sType;  // 구조체 타입 정의
-	const void* 						pNext; 	// NULL
+	VkStructureType 			sType;  // 구조체 타입 정의
+	const void* 				pNext; 	// NULL
 	VkPipelineShaderStageCreateFlags 	flags;
-	VkShaderStageFlagBits 				stage; 	// 셰이더 스테이지 정의
-	VkShaderModule 						module; // 셰이더 스테이지에서 사용되는 셰이더 모듈 정의
-	const char* 						pName; // 셰이더 모듈에서 엔트리 포인트 이름 정의
+	VkShaderStageFlagBits 			stage; 	// 셰이더 스테이지 정의
+	VkShaderModule 				module; // 셰이더 스테이지에서 사용되는 셰이더 모듈 정의
+	const char* 				pName; // 셰이더 모듈에서 엔트리 포인트 이름 정의
 	const VkSpecializationInfo* 		pSpecializationInfo; 
 } VkPipelineShaderStageCreateInfo;
 
@@ -226,7 +226,7 @@ array<VkPipelineShaderStageCreateInfo, 2> stages;
 	stage.module 	= shader_modules_[0]; 
 	stage.pName 	= "main"; 
 	
-	stages[0] 		= stage;
+	stages[0] 	= stage;
 }
 {
 	// 프래그먼트 셰이더 스테이지 정의
@@ -236,7 +236,7 @@ array<VkPipelineShaderStageCreateInfo, 2> stages;
 	stage.module 	= shader_modules_[1]; 
 	stage.pName 	= "main"; 
 	
-	stages[1] 		= stage; 
+	stages[1] 	= stage; 
 }
 ```
 
@@ -244,21 +244,21 @@ array<VkPipelineShaderStageCreateInfo, 2> stages;
 ### 버텍스 인풋 스테이지 
 ```c++
 typedef struct VkPipelineVertexInputStateCreateInfo { 
-	VkStructureType 							sType; // 구조체 타입 정의
-	const void* 								pNext; // NULL
+	VkStructureType 				sType; // 구조체 타입 정의
+	const void* 					pNext; // NULL
 	VkPipelineVertexInputStateCreateFlags 		flags; 
-	uint32_t 									vertexBindingDescriptionCount; // 버텍스 바인딩 개수
-	const VkVertexInputBindingDescription* 		pVertexBindingDescriptions; // 사용되는 버텍스 바인딩 배열의 포인터
-	uint32_t 									vertexAttributeDescriptionCount; // 버텍스 애트리뷰트 개수
-	const VkVertexInputAttributeDescription* 	pVertexAttributeDescriptions; // 사용되는 버텍스 애트리뷰트 배열의 포인터
+	uint32_t 					vertexBindingDescriptionCount; 	 // 버텍스 바인딩 개수
+	const VkVertexInputBindingDescription* 		pVertexBindingDescriptions; 	 // 사용되는 버텍스 바인딩 배열의 포인터
+	uint32_t 					vertexAttributeDescriptionCount; // 버텍스 애트리뷰트 개수
+	const VkVertexInputAttributeDescription* 	pVertexAttributeDescriptions; 	 // 사용되는 버텍스 애트리뷰트 배열의 포인터
 } VkPipelineVertexInputStateCreateInfo;
 
 typedef struct VkPipelineInputAssemblyStateCreateInfo { 
-	VkStructureType 						sType; // 구조체 타입 정의
-	const void* 							pNext; 
+	VkStructureType 			sType; // 구조체 타입 정의
+	const void* 				pNext; 
 	VkPipelineInputAssemblyStateCreateFlags flags; 
-	VkPrimitiveTopology 					topology; // 프리미티브 토폴로지 정의
-	VkBool32 								primitiveRestartEnable;
+	VkPrimitiveTopology 			topology; // 프리미티브 토폴로지 정의
+	VkBool32 				primitiveRestartEnable;
 } VkPipelineInputAssemblyStateCreateInfo;
 
 typedef enum VkPrimitiveTopology { 
@@ -290,22 +290,22 @@ input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 <img src="./PrimitiveTopology.PNG" width="100%"/>
 
-<img src="./Restart.PNG" width="100%"/>
+<img src="./Restart.PNG" width="60%"/>
 
 
 ### 파이프라인 뷰포트 스테이지
 
-<img src="./Viewport.PNG" width="100%"/>
+<img src="./Viewport.PNG" width="80%"/>
 
 ```c++
 typedef struct VkPipelineViewportStateCreateInfo { 
-VkStructureType 					sType; 
-const void* 						pNext;
+VkStructureType 			sType; 
+const void* 				pNext;
 VkPipelineViewportStateCreateFlags 	flags; 
-uint32_t 							viewportCount; 	// 뷰포트 개수
-const VkViewport* 					pViewports;		// 퓨포트 배열의 포인터
-uint32_t 							scissorCount; 	// 시저 개수
-const VkRect2D* 					pScissors; 		// 시저 배열의 포인터
+uint32_t 				viewportCount; 	// 뷰포트 개수
+const VkViewport* 			pViewports;	// 퓨포트 배열의 포인터
+uint32_t 				scissorCount; 	// 시저 개수
+const VkRect2D* 			pScissors; 	// 시저 배열의 포인터
 } VkPipelineViewportStateCreateInfo;
 
 typedef struct VkViewport { 
@@ -313,8 +313,8 @@ typedef struct VkViewport {
 	float y; 		// 좌측 상단 코너 y
 	float width; 	
 	float height; 
-	float minDepth; // 최소 뎁스, 일반적으로 0.0
-	float maxDepth; // 최대 뎁스, 일반적으로 1.0
+	float minDepth; 	// 최소 뎁스, 일반적으로 0.0
+	float maxDepth; 	// 최대 뎁스, 일반적으로 1.0
 } VkViewport;
 
 typedef struct VkRect2D { 
@@ -347,19 +347,19 @@ viewport_state.pScissors = &scissor;
 
 ```c++
 typedef struct VkPipelineRasterizationStateCreateInfo { 
-	VkStructureType 						sType; 
-	const void* 							pNext; 
+	VkStructureType 			sType; 
+	const void* 				pNext; 
 	VkPipelineRasterizationStateCreateFlags flags; 
-	VkBool32 								depthClampEnable; 
-	VkBool32 								rasterizerDiscardEnable; 
-	VkPolygonMode 							polygonMode; 
-	VkCullModeFlags 						cullMode; 
-	VkFrontFace 							frontFace; 
-	VkBool32 								depthBiasEnable; 
-	float 									depthBiasConstantFactor; 
-	float 									depthBiasClamp; 
-	float 									depthBiasSlopeFactor; 
-	float 									lineWidth; 
+	VkBool32 				depthClampEnable; 
+	VkBool32 				rasterizerDiscardEnable; 
+	VkPolygonMode 				polygonMode; 
+	VkCullModeFlags 			cullMode; 
+	VkFrontFace 				frontFace; 
+	VkBool32 				depthBiasEnable; 
+	float 					depthBiasConstantFactor; 
+	float 					depthBiasClamp; 
+	float 					depthBiasSlopeFactor; 
+	float 					lineWidth; 
 } VkPipelineRasterizationStateCreateInfo;
 
 typedef enum VkPolygonMode { 
@@ -393,15 +393,15 @@ rasterization_state.lineWidth = 1.0f;
 
 ```c++
 typedef struct VkPipelineMultisampleStateCreateInfo { 
-	VkStructureType 						sType; 
-	const void* 							pNext; 
+	VkStructureType 			sType; 
+	const void* 				pNext; 
 	VkPipelineMultisampleStateCreateFlags 	flags; 
-	VkSampleCountFlagBits 					rasterizationSamples; // 샘플 수
-	VkBool32 								sampleShadingEnable;
-	float 									minSampleShading; 
-	const VkSampleMask* 					pSampleMask; 
-	VkBool32 								alphaToCoverageEnable;
-	VkBool32 								alphaToOneEnable; 
+	VkSampleCountFlagBits 			rasterizationSamples; // 샘플 수
+	VkBool32 				sampleShadingEnable;
+	float 					minSampleShading; 
+	const VkSampleMask* 			pSampleMask; 
+	VkBool32 				alphaToCoverageEnable;
+	VkBool32 				alphaToOneEnable; 
 } VkPipelineMultisampleStateCreateInfo;
 
 typedef enum VkSampleCountFlagBits { 
@@ -426,18 +426,18 @@ multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 ```c++
 typedef struct VkPipelineDepthStencilStateCreateInfo { 
-	VkStructureType 						sType; // 구조체 타입 정의
-	const void* 							pNext; 
+	VkStructureType 			sType; 			// 구조체 타입 정의
+	const void* 				pNext; 
 	VkPipelineDepthStencilStateCreateFlags 	flags; 
-	VkBool32 								depthTestEnable; 
-	VkBool32 								depthWriteEnable; 
-	VkCompareOp 							depthCompareOp; 
-	VkBool32 								depthBoundsTestEnable; 
-	VkBool32 								stencilTestEnable; 
-	VkStencilOpState 						front; // 앞면에 대한 스텐실 테스트
-	VkStencilOpState 						back; // 뒷면에 대한 스텐실 테스트
-	float 									minDepthBounds; 
-	float 									maxDepthBounds; 
+	VkBool32 				depthTestEnable; 
+	VkBool32 				depthWriteEnable; 
+	VkCompareOp 				depthCompareOp; 
+	VkBool32 				depthBoundsTestEnable; 
+	VkBool32 				stencilTestEnable; 
+	VkStencilOpState 			front; 			// 앞면에 대한 스텐실 테스트
+	VkStencilOpState 			back; 			// 뒷면에 대한 스텐실 테스트
+	float 					minDepthBounds; 
+	float 					maxDepthBounds; 
 } VkPipelineDepthStencilStateCreateInfo;
 
 // 삼각형 그리는데는 depth/stencil 테스트 필요 X
@@ -451,26 +451,26 @@ depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREAT
 
 ```c++
 typedef struct VkPipelineColorBlendStateCreateInfo { 
-	VkStructureType 							sType; 
-	const void* 								pNext; 
+	VkStructureType 				sType; 
+	const void* 					pNext; 
 	VkPipelineColorBlendStateCreateFlags 		flags; 
-	VkBool32 									logicOpEnable; 
-	VkLogicOp 									logicOp; 
-	uint32_t 									attachmentCount; // 어태치먼트 수
-	const VkPipelineColorBlendAttachmentState* 	pAttachments; 	// 어태치먼트 배열의 포인터
-	float 										blendConstants[4]; 
+	VkBool32 					logicOpEnable; 
+	VkLogicOp 					logicOp; 
+	uint32_t 					attachmentCount; 	// 어태치먼트 수
+	const VkPipelineColorBlendAttachmentState* 	pAttachments; 		// 어태치먼트 배열의 포인터
+	float 						blendConstants[4]; 
 } VkPipelineColorBlendStateCreateInfo;
 
 
 typedef struct VkPipelineColorBlendAttachmentState { 
-	VkBool32 				blendEnable; // 블랜드 사용 유무
-	VkBlendFactor 			srcColorBlendFactor; // 소스 컬러 블랜드 팩터
-	VkBlendFactor 			dstColorBlendFactor; // 데스티네이션 컬러 블랜드 팩터
-	VkBlendOp 				colorBlendOp; // 컬러 블랜드 오퍼레이션
-	VkBlendFactor 			srcAlphaBlendFactor; // 소스 알파 블랜드 팩터
-	VkBlendFactor 			dstAlphaBlendFactor; // 데스티네이션 알파 블랜드 팩터
-	VkBlendOp 				alphaBlendOp; // 알파 블랜드 오퍼레이션
-	VkColorComponentFlags 	colorWriteMask; // 컬러 쓰기 마스크 
+	VkBool32 			blendEnable; 		// 블랜드 사용 유무
+	VkBlendFactor 			srcColorBlendFactor; 	// 소스 컬러 블랜드 팩터
+	VkBlendFactor 			dstColorBlendFactor; 	// 데스티네이션 컬러 블랜드 팩터
+	VkBlendOp 			colorBlendOp; 		// 컬러 블랜드 오퍼레이션
+	VkBlendFactor 			srcAlphaBlendFactor; 	// 소스 알파 블랜드 팩터
+	VkBlendFactor 			dstAlphaBlendFactor; 	// 데스티네이션 알파 블랜드 팩터
+	VkBlendOp 			alphaBlendOp; 		// 알파 블랜드 오퍼레이션
+	VkColorComponentFlags 		colorWriteMask; 	// 컬러 쓰기 마스크 
 } VkPipelineColorBlendAttachmentState;
 // 여기서 colorWriteMask 정의하지 않으면 컬러가 Write 되지 않음
 
@@ -478,9 +478,9 @@ typedef struct VkPipelineColorBlendAttachmentState {
 // colorWriteMask가 0이면 프래그먼트의 결과가 이미지에 기록 X 
 VkPipelineColorBlendAttachmentState attachment {}; 
 attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT 
-						| VK_COLOR_COMPONENT_G_BIT 
-						| VK_COLOR_COMPONENT_B_BIT 
-						| VK_COLOR_COMPONENT_A_BIT;
+			| VK_COLOR_COMPONENT_G_BIT 
+			| VK_COLOR_COMPONENT_B_BIT 
+			| VK_COLOR_COMPONENT_A_BIT;
 
 
 // 파이프라인 컬러 블렌드 스테이지 정의 
@@ -511,16 +511,15 @@ create_info.renderPass = render_pass_;
 
 
 VkResult vkCreateGraphicsPipelines( 
-	VkDevice 							device, 
-	VkPipelineCache 					pipelineCache,
-	uint32_t 							createInfoCount, // 그래픽스 파이프라인 구조체 수
-	const VkGraphicsPipelineCreateInfo* pCreateInfos, 	// 그래픽스 파이프라인 구조체 배열의 포인터
+	VkDevice 				device, 
+	VkPipelineCache 			pipelineCache,
+	uint32_t 				createInfoCount, // 그래픽스 파이프라인 구조체 수
+	const VkGraphicsPipelineCreateInfo* 	pCreateInfos, 	 // 그래픽스 파이프라인 구조체 배열의 포인터
 	const VkAllocationCallbacks* 		pAllocator, 
-	VkPipeline* 						pPipelines);
+	VkPipeline* 				pPipelines);
 
 // 그래픽스 파이프라인 생성
-auto result = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, 
-										&create_info, nullptr, &pipeline_); 
+auto result = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline_); 
 
 switch (result) { 
 	case VK_ERROR_OUT_OF_HOST_MEMORY: 
@@ -550,19 +549,19 @@ vkDestroyPipeline(device_, pipeline_, nullptr);
 ```c++
 void vkCmdDraw( 
 	VkCommandBuffer commandBuffer, 	// 커맨드 버퍼
-	uint32_t vertexCount, 			// 버텍스 수
-	uint32_t instanceCount, 		// 인스턴스의 수
-	uint32_t firstVertex, 			// 첫번째 버텍스의 인덱스, 오프셋 역할
-	uint32_t firstInstance);		
+	uint32_t 	vertexCount, 	// 버텍스 수
+	uint32_t 	instanceCount, 	// 인스턴스의 수
+	uint32_t 	firstVertex, 	// 첫번째 버텍스의 인덱스, 오프셋 역할
+	uint32_t 	firstInstance);		
 
 void vkCmdBindPipeline( 
-	VkCommandBuffer commandBuffer, 
-	VkPipelineBindPoint pipelineBindPoint, 	// 파이프라인 바인드 포인트
-	VkPipeline pipeline);					// 파이프라인
+	VkCommandBuffer 	commandBuffer, 
+	VkPipelineBindPoint 	pipelineBindPoint, 	// 파이프라인 바인드 포인트
+	VkPipeline 		pipeline);		// 파이프라인
 
 typedef enum VkPipelineBindPoint { 
 	VK_PIPELINE_BIND_POINT_GRAPHICS = 0, 
-	VK_PIPELINE_BIND_POINT_COMPUTE = 1, 
+	VK_PIPELINE_BIND_POINT_COMPUTE = 1,  
 	VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR = 1000165000, 
 	VK_PIPELINE_BIND_POINT_RAY_TRACING_NV = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 } VkPipelineBindPoint;
@@ -610,7 +609,7 @@ void glBufferData(GLenum target, GLsizeiptr size, const void * data, GLenum usag
 
 ```c++
 void vkGetPhysicalDeviceMemoryProperties( 
-	VkPhysicalDevice physicalDevice, // 물리 디바이스
+	VkPhysicalDevice 		  physicalDevice, // 물리 디바이스
 	VkPhysicalDeviceMemoryProperties* pMemoryProperties); // 메모리 성질을 얻어올 변수 포인터
 
 // 메모리 성질을 얻어오기 위한 변수 선언
@@ -621,16 +620,16 @@ vkGetPhysicalDeviceMemoryProperties(physical_device_, &properties);
 
 // 메모리 성질 구조체
 typedef struct VkPhysicalDeviceMemoryProperties { 
-	uint32_t 		memoryTypeCount; 					// 사용가능한 메모리 타입 수
-	VkMemoryType 	memoryTypes[VK_MAX_MEMORY_TYPES]; 	// 메모리 타입 배열
-	uint32_t 		memoryHeapCount; 					// 사용가능한 메모리 힙의 수
-	VkMemoryHeap 	memoryHeaps[VK_MAX_MEMORY_HEAPS]; 	// 매모리 힙 배열
+	uint32_t 		memoryTypeCount; 			// 사용가능한 메모리 타입 수
+	VkMemoryType 		memoryTypes[VK_MAX_MEMORY_TYPES]; 	// 메모리 타입 배열
+	uint32_t 		memoryHeapCount; 			// 사용가능한 메모리 힙의 수
+	VkMemoryHeap 		memoryHeaps[VK_MAX_MEMORY_HEAPS]; 	// 매모리 힙 배열
 } VkPhysicalDeviceMemoryProperties;
 
 // 메모리 타입 구조체
 typedef struct VkMemoryType { 
 	VkMemoryPropertyFlags 	propertyFlags; 	// 메모리 타입 성질
-	uint32_t 				heapIndex; 		// 이 메모리 타입에 대응되는 메모리 힙 인덱스
+	uint32_t 		heapIndex; 		// 이 메모리 타입에 대응되는 메모리 힙 인덱스
 } VkMemoryType;
 
 // 메모리 특성 플래그
@@ -670,8 +669,8 @@ for (auto i = 0; i != VK_MAX_MEMORY_TYPES; ++i) {
 	auto heap_index = properties.memoryTypes[i].heapIndex; 
 	
 	cout << i << " Memory Type" << '\n' 
-		<< '\t' << properties.memoryTypes[i] << '\n' 
-		<< '\t' << properties.memoryHeaps[heap_index] << '\n'; 
+	     << '\t' << properties.memoryTypes[i] << '\n' 
+	     << '\t' << properties.memoryHeaps[heap_index] << '\n'; 
 }
 ```
 
@@ -719,7 +718,7 @@ struct Vertex {
 
 // 삼각형을 그리기위해 필요한 버텍스 정보 정의 
 vector vertices = { 
-	/* 위치 */ /* 색상 */ 
+	/* 위치 */ 	/* 색상 */ 
 	{ 0.0, -0.5, 0.0, 1.0, 0.0, 0.0}, 
 	{ 0.5, 0.5, 0.0, 0.0, 1.0, 0.0}, 
 	{-0.5, 0.5, 0.0, 0.0, 0.0, 1.0} 
@@ -734,12 +733,12 @@ vector vertices = {
 typedef struct VkBufferCreateInfo { 
 	VkStructureType 	sType; 
 	const void* 		pNext; 
-	VkBufferCreateFlags flags; 
-	VkDeviceSize 		size; // 버퍼 사이즈
-	VkBufferUsageFlags 	usage; // 버퍼 사용처
-	VkSharingMode 		sharingMode; // 버퍼가 여러 큐에 의해 공유될지 정의
-	uint32_t 			queueFamilyIndexCount; // 버퍼를 사용한 큐 인덱스 개수
-	const uint32_t* 	pQueueFamilyIndices; // 버퍼를 사용할 큐 인덱스 배열의 포인터
+	VkBufferCreateFlags 	flags; 
+	VkDeviceSize 		size; 			// 버퍼 사이즈
+	VkBufferUsageFlags 	usage; 			// 버퍼 사용처
+	VkSharingMode 		sharingMode; 		// 버퍼가 여러 큐에 의해 공유될지 정의
+	uint32_t 		queueFamilyIndexCount; 	// 버퍼를 사용한 큐 인덱스 개수
+	const uint32_t* 	pQueueFamilyIndices; 	// 버퍼를 사용할 큐 인덱스 배열의 포인터
 } VkBufferCreateInfo;
 
 
@@ -783,7 +782,7 @@ create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
 VkResult vkCreateBuffer( 
 	VkDevice device, 
-	const VkBufferCreateInfo* pCreateInfo, // 생성하려는 버퍼를 정의한 구조체
+	const VkBufferCreateInfo* pCreateInfo,
 	const VkAllocationCallbacks* pAllocator, 
 	VkBuffer* pBuffer);
 
@@ -801,7 +800,6 @@ switch (result) {
 		break; 
 } 
 assert(result == VK_SUCCESS);
-
 
 void vkDestroyBuffer( 
 	VkDevice device, 
@@ -832,7 +830,7 @@ void vkGetBufferMemoryRequirements(
 typedef struct VkMemoryRequirements { 
 	VkDeviceSize 	size; 			// 버퍼를 위해 필요한 메모리 크기
 	VkDeviceSize 	alignment; 		// 메모리 얼라이먼트
-	uint32_t 		memoryTypeBits; // 메모리가 할당될 수 있는 메모리 타입이 정의된 마스크
+	uint32_t 	memoryTypeBits; 	// 메모리가 할당될 수 있는 메모리 타입이 정의된 마스크
 } VkMemoryRequirements;
 
 // 메모리 요구사항을 얻어올 변수 선언
@@ -875,7 +873,7 @@ typedef struct VkMemoryAllocateInfo {
 	VkStructureType 	sType; 
 	const void* 		pNext; 
 	VkDeviceSize 		allocationSize; // 할당하려는 메모리 크기
-	uint32_t 			memoryTypeIndex; // 메모리 타입 인덱스 정의
+	uint32_t 		memoryTypeIndex; // 메모리 타입 인덱스 정의
 } VkMemoryAllocateInfo;
 
 // 할당하려는 메모리 정의
@@ -889,10 +887,10 @@ alloc_info.memoryTypeIndex = find_memory_type_index(requirements,
 
 
 VkResult vkAllocateMemory( 
-	VkDevice 						device, 
-	const VkMemoryAllocateInfo* 	pAllocateInfo, // 할당하려는 메모리 정의 구조체
+	VkDevice 			device, 
+	const VkMemoryAllocateInfo* 	pAllocateInfo,  // 할당하려는 메모리 정의 구조체
 	const VkAllocationCallbacks* 	pAllocator, 
-	VkDeviceMemory* 				pMemory);	// 할당된 메모리를 얻어오는 변수의 포인터
+	VkDeviceMemory* 		pMemory);	// 할당된 메모리를 얻어오는 변수의 포인터
 
 // 메모리 할당 
 result = vkAllocateMemory(device_, &alloc_info, nullptr, &vertex_device_memory_); 
@@ -917,10 +915,10 @@ assert(result == VK_SUCCESS);
 
 ```c++
 VkResult vkBindBufferMemory( 
-	VkDevice device, 
-	VkBuffer buffer, 
-	VkDeviceMemory memory, 
-	VkDeviceSize memoryOffset);
+	VkDevice 	device, 
+	VkBuffer 	buffer, 
+	VkDeviceMemory 	memory, 
+	VkDeviceSize 	memoryOffset);
 
 // 버퍼와 메모리 바인드
 result = vkBindBufferMemory(device_, vertex_buffer_, vertex_device_memory_, 0); 
@@ -942,16 +940,16 @@ switch (result) {
 - HOST_VISIBLE_BIT 이 지원되는 메모리로 할당했기에 CPU 에서 메모리를 바로 접근하여 버텍스 정보 복사
 ```c++
 VkResult vkMapMemory( 
-	VkDevice device, 
-	VkDeviceMemory memory,
-	VkDeviceSize offset, 
-	VkDeviceSize size, 
+	VkDevice 	device, 
+	VkDeviceMemory 	memory,
+	VkDeviceSize 	offset, 
+	VkDeviceSize 	size, 
 	VkMemoryMapFlags flags, 
-	void** ppData); // 메모리에 접근 가능한 버추얼 어드레스를 얻어올 변수의 포인터
+	void** 		ppData); // 메모리에 접근 가능한 버추얼 어드레스를 얻어올 변수의 포인터
 
 // CPU에서 메모리에 접근하기 위한 버추얼 어드레스 얻음 
 void* contents; result = vkMapMemory(device_, vertex_device_memory_, 0, 
-						sizeof(Vertex) * vertices.size(), 0, &contents); 
+				sizeof(Vertex) * vertices.size(), 0, &contents); 
 
 switch (result) { 
 	case VK_ERROR_OUT_OF_HOST_MEMORY: 
@@ -977,8 +975,7 @@ void vkUnmapMemory( VkDevice device, VkDeviceMemory memory);
 vkUnmapMemory(device_, vertex_device_memory_);
 
 
-void vkFreeMemory( VkDevice device, VkDeviceMemory memory, 
-					const VkAllocationCallbacks* pAllocator);		
+void vkFreeMemory( VkDevice device, VkDeviceMemory memory, const VkAllocationCallbacks* pAllocator);		
 // 할당된 메모리 해제
 vkFreeMemory(device_, vertex_device_memory_, nullptr);
 
@@ -1017,19 +1014,19 @@ void main() {
 - 파이프라인 버텍스 인풋 스테이지 수정
 ```c++
 typedef struct VkPipelineVertexInputStateCreateInfo { 
-	VkStructureType 							sType; // 구조체 타입 정의
-	const void* 								pNext; // NULL
+	VkStructureType 				sType; // 구조체 타입 정의
+	const void* 					pNext; // NULL
 	VkPipelineVertexInputStateCreateFlags 		flags; 
-	uint32_t 									vertexBindingDescriptionCount; // 버텍스 바인딩 개수
+	uint32_t 					vertexBindingDescriptionCount; // 버텍스 바인딩 개수
 	const VkVertexInputBindingDescription* 		pVertexBindingDescriptions; // 사용되는 버텍스 바인딩 배열의 포인터
-	uint32_t 									vertexAttributeDescriptionCount; // 버텍스 애트리뷰트 개수
+	uint32_t 					vertexAttributeDescriptionCount; // 버텍스 애트리뷰트 개수
 	const VkVertexInputAttributeDescription* 	pVertexAttributeDescriptions; // 사용되는 버텍스 애트리뷰트 배열의 포인터
 } VkPipelineVertexInputStateCreateInfo;
 
 
 typedef struct VkVertexInputBindingDescription { 
-	uint32_t 			binding; // 버텍스 버퍼가 바인딩 될 위치
-	uint32_t 			stride; // 버텍스 정보 스트라이드
+	uint32_t 		binding; // 버텍스 버퍼가 바인딩 될 위치
+	uint32_t 		stride; // 버텍스 정보 스트라이드
 	VkVertexInputRate 	inputRate; // 버텍스 정보가 셰이더에 어떻게 공급될지 정의
 } VkVertexInputBindingDescription;
 
@@ -1041,10 +1038,10 @@ vertex_input_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 
 typedef struct VkVertexInputAttributeDescription { 
-	uint32_t location; // 특정 로케이션의 애트리뷰트에 데이터 전달할지 정의
-	uint32_t binding; // 어떤 버텍스 버퍼로부터 데이터 읽을지 정의
-	VkFormat format; // 애트리뷰트 포맷
-	uint32_t offset; 
+	uint32_t 	location; 	// 특정 로케이션의 애트리뷰트에 데이터 전달할지 정의
+	uint32_t 	binding; 	// 어떤 버텍스 버퍼로부터 데이터 읽을지 정의
+	VkFormat 	format; 	// 애트리뷰트 포맷
+	uint32_t 	offset; 
 } VkVertexInputAttributeDescription;
 
 // 버텍스 셰이더엔 2개의 애트리뷰트 있음
@@ -1055,7 +1052,7 @@ vector<VkVertexInputAttributeDescription> vertex_input_attributes;
 	VkVertexInputAttributeDescription vertex_input_attribute {}; 
 	vertex_input_attribute.location = 0; // 셰이더에서 정의한 로케이션 
 	vertex_input_attribute.binding = 0; // 버텍스 버퍼의 바인딩 인덱스 
-	vertex_input_attribute.format = VK_FORMAT_R32G32B32_SFLOAT; 
+	vertex_input_attribute.format = VK_FORMAT_R32G32_SFLOAT; 
 	vertex_input_attribute.offset = offsetof(Vertex, x); 
 	vertex_input_attributes.push_back(vertex_input_attribute); 
 } 
@@ -1077,21 +1074,17 @@ vector<VkVertexInputAttributeDescription> vertex_input_attributes;
 
 ```c++
 void vkCmdBindVertexBuffers( 
-	VkCommandBuffer commandBuffer, 
-	uint32_t firstBinding, // 버텍스 버퍼를 바인드할 첫번째 버텍스 인풋 바인딩 인덱스
-	uint32_t bindingCount, // 바인드할 버텍스 버퍼 수
-	const VkBuffer* pBuffers, // 바인드할 버텍스 버퍼 배열의 포인터
-	const VkDeviceSize* pOffsets); // 버텍스 버퍼 오프셋 배열의 포인터
+	VkCommandBuffer 	commandBuffer, 
+	uint32_t 		firstBinding, // 버텍스 버퍼를 바인드할 첫번째 버텍스 인풋 바인딩 인덱스
+	uint32_t 		bindingCount, // 바인드할 버텍스 버퍼 수
+	const VkBuffer* 	pBuffers, // 바인드할 버텍스 버퍼 배열의 포인터
+	const VkDeviceSize* 	pOffsets); // 버텍스 버퍼 오프셋 배열의 포인터
 
 // 삼각형을 그리기 위해 필요한 버텍스 버퍼를 0번에 바인드
 VkDeviceSize vertex_buffer_offset {0}; 
-vkCmdBindVertexBuffers(command_buffer_, 0, 1, 
-					&vertex_buffer_, &vertex_buffer_offset);
+vkCmdBindVertexBuffers(command_buffer_, 0, 1, &vertex_buffer_, &vertex_buffer_offset);
 ```
 
-
-
----
 ---
 ### 벌칸 인덱스 버퍼
 
@@ -1111,7 +1104,7 @@ VkBufferCreateInfo create_info {};
 create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; 
 create_info.size = sizeof(uint16_t) * indices.size(); 
 create_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT 
-					| VK_BUFFER_USAGE_TRANSFER_DST_BIT; 
+		| VK_BUFFER_USAGE_TRANSFER_DST_BIT; 
 
 // 정의한 인덱스 버퍼 생성
 auto result = vkCreateBuffer(device_, &create_info, nullptr, &index_buffer_);
@@ -1143,8 +1136,7 @@ VkMemoryAllocateInfo alloc_info {};
 alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO; 
 alloc_info.allocationSize = requirements.size; 
 // GPU의 접근이 빠르나 CPU는 접근 X
-alloc_info.memoryTypeIndex = find_memory_type_index(requirements, 
-							VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); 
+alloc_info.memoryTypeIndex = find_memory_type_index(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); 
 
 // 메모리 할당 
 result = vkAllocateMemory(device_, &alloc_info, nullptr, &index_device_memory_); 
@@ -1266,7 +1258,7 @@ result = vkBindBufferMemory(device_, staging_buffer, staging_device_memory, 0);
 // CPU에서 메모리에 접근하기 위한 버추얼 어드레스 얻음
 void* contents; 
 result = vkMapMemory(device_, staging_device_memory, 0, 
-					sizeof(uint16_t) * indices.size(), 0, &contents);
+		sizeof(uint16_t) * indices.size(), 0, &contents);
 
 // 인덱스 정보를 메모리 복사 
 memcpy(contents, &indices[0], sizeof(uint16_t) * indices.size()); 
@@ -1283,10 +1275,10 @@ vkUnmapMemory(device_, staging_device_memory);
 ```c++
 void vkCmdCopyBuffer( 
 	VkCommandBuffer 	commandBuffer, 
-	VkBuffer 			srcBuffer, // 복사할 소스 버퍼
-	VkBuffer 			dstBuffer, // 복사될 데스티네이션 버퍼
-	uint32_t 			regionCount, // 복사 영역의 수
-	const VkBufferCopy* pRegions);	// 복사 영역을 정의한 구조체 배열의 포인터
+	VkBuffer 		srcBuffer, 	// 복사할 소스 버퍼
+	VkBuffer 		dstBuffer, 	// 복사될 데스티네이션 버퍼
+	uint32_t 		regionCount, 	// 복사 영역의 수
+	const VkBufferCopy* 	pRegions);	// 복사 영역을 정의한 구조체 배열의 포인터
 
 // 복사할 영역 구조체 정의
 typedef struct VkBufferCopy { 
@@ -1337,9 +1329,9 @@ vkFreeMemory(device_, staging_device_memory, nullptr);
 ```c++
 void vkCmdBindIndexBuffer( 
 	VkCommandBuffer commandBuffer, 
-	VkBuffer buffer, 
-	VkDeviceSize offset, 
-	VkIndexType indexType);
+	VkBuffer 	buffer, 
+	VkDeviceSize 	offset, 
+	VkIndexType 	indexType);
 
 typedef enum VkIndexType { 
 	VK_INDEX_TYPE_UINT16 = 0, 
@@ -1351,11 +1343,11 @@ typedef enum VkIndexType {
 
 void vkCmdDrawIndexed( 
 	VkCommandBuffer commandBuffer, 
-	uint32_t indexCount, // 인덱스 개수
-	uint32_t instanceCount, // 인스턴스 개수, 사용하지 않을 경우 1
-	uint32_t firstIndex, // 드로우에 사용될 첫번째 인덱스
-	int32_t vertexOffset, // 버텍스의 오프셋
-	uint32_t firstInstance);// 첫번째 인스턴스, 사용하지 않을 경우 0
+	uint32_t 	indexCount, 	// 인덱스 개수
+	uint32_t 	instanceCount, 	// 인스턴스 개수, 사용하지 않을 경우 1
+	uint32_t 	firstIndex, 	// 드로우에 사용될 첫번째 인덱스
+	int32_t 	vertexOffset, 	// 버텍스의 오프셋
+	uint32_t 	firstInstance);	// 첫번째 인스턴스, 사용하지 않을 경우 0
 
 // 인덱스 버퍼를 바인드 
 vkCmdBindIndexBuffer(command_buffer_, index_buffer_, 0, VK_INDEX_TYPE_UINT16);
@@ -1364,7 +1356,6 @@ vkCmdBindIndexBuffer(command_buffer_, index_buffer_, 0, VK_INDEX_TYPE_UINT16);
 vkCmdDrawIndexed(command_buffer_, 3, 1, 0, 0, 0);
 
 ```
-
 
 ### 벌칸 유니폼 버퍼 
 
@@ -1413,16 +1404,16 @@ struct Material {
 
 ```c++
 layout(set = 0, binding = 0) uniform Uniform_block { 
-						// base alignment 	// aligned offset 
+				// base alignment 		// aligned offset 
 	float value; 		// 4 				// 0 
 	vec3 vector; 		// 16 				// 16 
 	mat4 matrix; 		// 16 				// 32 (0 열) 
-						// 16 				// 48 (1 열) 
-						// 16 				// 64 (2 열) 
-						// 16 				// 80 (3 열) 
+				// 16 				// 48 (1 열) 
+				// 16 				// 64 (2 열) 
+				// 16 				// 80 (3 열) 
 	float values[3]; 	// 16 				// 96 (values[0]) 
-						// 16 				// 112 (values[1]) 
-						// 16 				// 128 (values[2]) 
+				// 16 				// 112 (values[1]) 
+				// 16 				// 128 (values[2]) 
 	bool boolean; 		// 4 				// 144 
 	int integer; 		// 4 				// 148 
 };
@@ -1497,31 +1488,31 @@ layout(set = 2, binding = 1) uniform UBO21 {};
 
 ```c++
 typedef struct VkPipelineLayoutCreateInfo { 
-	VkStructureType 				sType; // 구조체 타입
-	const void* 					pNext; 
+	VkStructureType 		sType; 		// 구조체 타입
+	const void* 			pNext; 
 	VkPipelineLayoutCreateFlags 	flags; 
-	uint32_t 						setLayoutCount; // 레이아웃에 포함될 디스크립터 셋 수
-	const VkDescriptorSetLayout* 	pSetLayouts; // 디스크립터 셋 레이아웃 변수나 배열의 포인터
-	uint32_t 						pushConstantRangeCount; 
-	const VkPushConstantRange* 		pPushConstantRanges; 
+	uint32_t 			setLayoutCount; // 레이아웃에 포함될 디스크립터 셋 수
+	const VkDescriptorSetLayout* 	pSetLayouts; 	// 디스크립터 셋 레이아웃 변수나 배열의 포인터
+	uint32_t 			pushConstantRangeCount; 
+	const VkPushConstantRange* 	pPushConstantRanges; 
 } VkPipelineLayoutCreateInfo;
 
 
 // 디스크립터 셋 레이아웃 구조체
 // 파이프라인이 어떤 리소스들을 접근할지 정의
 typedef struct VkDescriptorSetLayoutCreateInfo { 
-	VkStructureType 					sType; // 구조체 타입
-	const void* 						pNext; 
+	VkStructureType 			sType; 		// 구조체 타입
+	const void* 				pNext; 
 	VkDescriptorSetLayoutCreateFlags 	flags; 
-	uint32_t 							bindingCount; // 디스크립터 셋 레이아웃 바인딩 수
-	const VkDescriptorSetLayoutBinding* pBindings; // 디스크립터 셋 레이아웃 바인딩 배열의 포인터
+	uint32_t 				bindingCount; 	// 디스크립터 셋 레이아웃 바인딩 수
+	const VkDescriptorSetLayoutBinding* 	pBindings; 	// 디스크립터 셋 레이아웃 바인딩 배열의 포인터
 } VkDescriptorSetLayoutCreateInfo;
 
 typedef struct VkDescriptorSetLayoutBinding { 
-	uint32_t 			binding; // 리소스의 바인딩 로케이션 정의
-	VkDescriptorType 	descriptorType; // 디스크립터의 타입
-	uint32_t 			descriptorCount; // 디스크립터의 수
-	VkShaderStageFlags 	stageFlags; // 리소스가 접근될 스테이지 
+	uint32_t 		binding; 	 // 리소스의 바인딩 로케이션 정의
+	VkDescriptorType 	descriptorType;  // 디스크립터의 타입
+	uint32_t 		descriptorCount; // 디스크립터의 수
+	VkShaderStageFlags 	stageFlags; 	 // 리소스가 접근될 스테이지 
 	const VkSampler* 	pImmutableSamplers; 
 } VkDescriptorSetLayoutBinding;
 
@@ -1591,8 +1582,7 @@ void vkDestroyDescriptorSetLayout(
 	const VkAllocationCallbacks* pAllocator);
 
 // 디스크립터 셋 레이아웃 생성
-auto result = vkCreateDescriptorSetLayout(device_, &create_info, nullptr, 
-										&material_descriptor_set_layout_);
+auto result = vkCreateDescriptorSetLayout(device_, &create_info, nullptr, &material_descriptor_set_layout_);
 
 // 생성한 디스크립터 셋 레이아웃 파괴 
 vkDestroyDescriptorSetLayout(device_, material_descriptor_set_layout_, nullptr);
@@ -1613,18 +1603,18 @@ auto result = vkCreatePipelineLayout(device_, &create_info, nullptr, &pipeline_l
 ```c++
 // 생성하려는 디스크립터 풀 구조체
 typedef struct VkDescriptorPoolCreateInfo { 
-	VkStructureType sType; 
-	const void* pNext; 
-	VkDescriptorPoolCreateFlags flags; 
-	uint32_t maxSets; // 최대로 할당할 수 있는 디스크립터 셋 수
-	uint32_t poolSizeCount; // 디스크립터 풀 사이즈 수
-	const VkDescriptorPoolSize* pPoolSizes; // 디스크립터 풀 사이즈 배열의 포인터
+	VkStructureType 		sType; 
+	const void* 			pNext; 
+	VkDescriptorPoolCreateFlags 	flags; 
+	uint32_t 			maxSets; // 최대로 할당할 수 있는 디스크립터 셋 수
+	uint32_t 			poolSizeCount; // 디스크립터 풀 사이즈 수
+	const VkDescriptorPoolSize* 	pPoolSizes; // 디스크립터 풀 사이즈 배열의 포인터
 } VkDescriptorPoolCreateInfo;
 
 // 디스크립터 풀 사이즈 구조체
 typedef struct VkDescriptorPoolSize { 
-	VkDescriptorType type; // 디스크립터 타입
-	uint32_t descriptorCount; // 할당할 수 있는 디스크립터의 수
+	VkDescriptorType 	type; // 디스크립터 타입
+	uint32_t 		descriptorCount; // 할당할 수 있는 디스크립터의 수
 } VkDescriptorPoolSize;
 
 // 디스크립터 풀의 크기를 정의
@@ -1661,11 +1651,11 @@ vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
 ```c++
 // 할당하려는 디스크립터 셋 구조체
 typedef struct VkDescriptorSetAllocateInfo { 
-	VkStructureType sType; 
-	const void* pNext; 
-	VkDescriptorPool descriptorPool; // 디스크립터 풀
-	uint32_t descriptorSetCount; // 디스크립터 셋 레이아웃 수
-	const VkDescriptorSetLayout* pSetLayouts; // 디스크립터 셋 레이아웃 배열의 포인터
+	VkStructureType 		sType; 
+	const void* 			pNext; 
+	VkDescriptorPool 		descriptorPool; // 디스크립터 풀
+	uint32_t 			descriptorSetCount; // 디스크립터 셋 레이아웃 수
+	const VkDescriptorSetLayout* 	pSetLayouts; // 디스크립터 셋 레이아웃 배열의 포인터
 } VkDescriptorSetAllocateInfo;
 
 // 할당 받으려는 디스크립터 셋을 정의 
@@ -1696,20 +1686,20 @@ vkFreeDescriptorSets(device_, descriptor_pool_, 1, &material_descriptor_set_);
 
 ```c++
 typedef struct VkWriteDescriptorSet { 
-	VkStructureType 				sType; 
-	const void* 					pNext; 
-	VkDescriptorSet 				dstSet; // 디스크립터 셋
-	uint32_t 						dstBinding; // 디스크립터 셋 바인딩 인덱스
-	uint32_t 						dstArrayElement; // 배열 시작 엘리먼트 인덱스
-	uint32_t 						descriptorCount; // 업데이트할 디스크립터 수
-	VkDescriptorType 				descriptorType; // 업데이트할 디스크립터 타입
-	const VkDescriptorImageInfo* 	pImageInfo; // 디스크립터 타입이 이미지일 경우, 이미지 정의
-	const VkDescriptorBufferInfo* 	pBufferInfo; // 디스크립터 타입이 버퍼인 경우, 버퍼 정의
-	const VkBufferView* 			pTexelBufferView; // 디스크립터 타입이 텍셀버퍼인 경우,버퍼 정의
+	VkStructureType 		sType; 
+	const void* 			pNext; 
+	VkDescriptorSet 		dstSet; 	 // 디스크립터 셋
+	uint32_t 			dstBinding; 	 // 디스크립터 셋 바인딩 인덱스
+	uint32_t 			dstArrayElement; // 배열 시작 엘리먼트 인덱스
+	uint32_t 			descriptorCount; // 업데이트할 디스크립터 수
+	VkDescriptorType 		descriptorType;  // 업데이트할 디스크립터 타입
+	const VkDescriptorImageInfo* 	pImageInfo; 	 // 디스크립터 타입이 이미지일 경우, 이미지 정의
+	const VkDescriptorBufferInfo* 	pBufferInfo; 	 // 디스크립터 타입이 버퍼인 경우, 버퍼 정의
+	const VkBufferView* 		pTexelBufferView; // 디스크립터 타입이 텍셀버퍼인 경우,버퍼 정의
 } VkWriteDescriptorSet;
 
 typedef struct VkDescriptorBufferInfo { 
-	VkBuffer 		buffer; // 디스크립터 셋이 가리킬 버퍼 
+	VkBuffer 	buffer; // 디스크립터 셋이 가리킬 버퍼 
 	VkDeviceSize 	offset; // 버퍼의 오프셋
 	VkDeviceSize 	range;  // 접근할 수 있는 버퍼의 범위
 } VkDescriptorBufferInfo;
@@ -1732,11 +1722,11 @@ descriptor_write.pBufferInfo = &buffer_info;
 
 // 디스크립터 셋이 어떤 리소스를 가리킬지 정의한 정보를 디스크립터 셋에 업데이트하는 API
 void vkUpdateDescriptorSets( 
-	VkDevice device, 
-	uint32_t descriptorWriteCount, // 업데이트하려는 디스크립터 셋 수
-	const VkWriteDescriptorSet* pDescriptorWrites, // 어떤 리소스를 가리킬지 정의한 구조체 배열의 포인터
-	uint32_t descriptorCopyCount, // 카피할 디스크립터 셋 수
-	const VkCopyDescriptorSet* pDescriptorCopies);
+	VkDevice 			device, 
+	uint32_t 			descriptorWriteCount, 	// 업데이트하려는 디스크립터 셋 수
+	const VkWriteDescriptorSet* 	pDescriptorWrites, 	// 어떤 리소스를 가리킬지 정의한 구조체 배열의 포인터
+	uint32_t 			descriptorCopyCount, 	// 카피할 디스크립터 셋 수
+	const VkCopyDescriptorSet* 	pDescriptorCopies);
 
 // 디스크립터 셋을 업데이트
 vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
@@ -1772,17 +1762,17 @@ vkUnmapMemory(device_, uniform_device_memory_);
 
 ```c++
 void vkCmdBindDescriptorSets( 
-	VkCommandBuffer commandBuffer, 
-	VkPipelineBindPoint pipelineBindPoint, // 파이프라인 바인드 포인트
-	VkPipelineLayout layout, // 파이프라인 레이아웃
-	uint32_t firstSet, // 디스크립터 셋이 바인딩될 첫번째 셋 인덱스
-	uint32_t descriptorSetCount, // 바인딩할 디스크립터 수
-	const VkDescriptorSet* pDescriptorSets, //바인딩할 디스크립터 배열의 포인터
-	uint32_t dynamicOffsetCount, 
-	const uint32_t* pDynamicOffsets);
+	VkCommandBuffer 	commandBuffer, 
+	VkPipelineBindPoint 	pipelineBindPoint, 	// 파이프라인 바인드 포인트
+	VkPipelineLayout 	layout, 		// 파이프라인 레이아웃
+	uint32_t 		firstSet, 		// 디스크립터 셋이 바인딩될 첫번째 셋 인덱스
+	uint32_t 		descriptorSetCount, 	// 바인딩할 디스크립터 수
+		const VkDescriptorSet* 	pDescriptorSets, //바인딩할 디스크립터 배열의 포인터
+	uint32_t 		dynamicOffsetCount, 
+	const uint32_t* 	pDynamicOffsets);
 
 // 디스크립터 셋을 바인드 
 vkCmdBindDescriptorSets(command_buffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-					pipeline_layout_, 0, 1, &material_descriptor_set_, 0, nullptr);
+			pipeline_layout_, 0, 1, &material_descriptor_set_, 0, nullptr);
 ```
 

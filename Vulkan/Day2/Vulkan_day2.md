@@ -1,3 +1,19 @@
+- [목차](#목차)
+- [벌칸을 이용한 첫 화면 출력](#벌칸을-이용한-첫-화면-출력)
+  - [벌칸의 커맨드?](#벌칸의-커맨드)
+  - [벌칸의 커맨드 풀?](#벌칸의-커맨드-풀)
+  - [벌칸의 커맨드 버퍼?](#벌칸의-커맨드-버퍼)
+  - [클리어 색상 화면 출력](#클리어-색상-화면-출력)
+- [벌칸 동기화](#벌칸-동기화)
+  - [c++ 동기화](#c-동기화)
+  - [벌칸 펜스](#벌칸-펜스)
+  - [벌칸 세마포어](#벌칸-세마포어)
+- [벌칸 이미지 렌더링](#벌칸-이미지-렌더링)
+  - [이미지 뷰](#이미지-뷰)
+  - [벌칸 프레임 버퍼](#벌칸-프레임-버퍼)
+  - [벌칸 렌더 패스](#벌칸-렌더-패스)
+  - [빠른 클리어 연산을 이용한 클리어 색상 화면 출력](#빠른-클리어-연산을-이용한-클리어-색상-화면-출력)
+
 # 목차
 * 벌칸을 이용한 첫 화면 출력
   * 커맨드/커맨드버퍼/커맨드풀에 관해
@@ -876,3 +892,134 @@ subpass_desc.pColorAttachments = &color_attachment_ref;
 
 <img src="./image_17.png" width="80%"/>
 
+## 빠른 클리어 연산을 이용한 클리어 색상 화면 출력
+
+클리어 연산은 ```vkCmdClearColorImage()``` 로도 수행할 수 있지만, 이는 디바이스 메모리에 직접 접근하는 함수이기 때문에 느리다.
+
+따라서 렌더패스를 이용해 타일 메모리에만 작성해서 사용하면 훨씬 빠르게 연산을 수행할 수 있다.
+
+이미지 베리어부터 정의를 하자.
+빠른 클리어 연산을 위해선 레이아웃을 ```VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL``` 로 변경해야 한다.
+
+이미지 베리어 코드.
+```cpp
+// 이미지 배리어를 정의하기 위한 변수를 선언합니다.
+VkImageMemoryBarrier barrier {};
+// 이미지 배리어를 정의합니다.
+// 이미지에 렌더링을 하기 위해서는 COLOR_ATTACHMENT_OPTIMAL이어야 합니다.
+barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+barrier.srcAccessMask = 0;
+barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+barrier.srcQueueFamilyIndex = queue_family_index_;
+barrier.dstQueueFamilyIndex = queue_family_index_;
+barrier.image = swapchain_image;
+barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+barrier.subresourceRange.levelCount = 1;
+barrier.subresourceRange.layerCount = 1;
+
+// 이미지 레이아웃 변경을 위한 파이프라인 배리어 커맨드를 기록합니다.
+vkCmdPipelineBarrier(command_buffer_, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,0, nullptr, 0, nullptr, 1, &barrier);
+```
+
+그리고 렌더 패스를 생성할 때 어태치먼트들의 로드 오퍼레이션이 아래와 같이 클리어로 되어있어야 한다.
+```cpp
+VkAttachmentDescription attachment_desc {};
+// ...
+attachment_desc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+// ...
+```
+
+아래 API를 통해 렌더 패스를 시작할 때 더 빠른 클리어를 수행할 수 있다.
+
+렌더 패스를 어떻게 시작할 지에 대한 정의를 한 후, 커맨드 버퍼를 주어서 렌더 패스를 수행하는 함수이다.
+
+```cpp
+void vkCmdBeginRenderPass( VkCommandBuffer commandBuffer,
+                           const VkRenderPassBeginInfo* pRenderPassBegin,
+                           VkSubpassContents contents);
+```
+
+```cpp
+typedef struct VkRenderPassBeginInfo {
+  VkStructureType sType; // 구조체의 타입.
+  const void* pNext; // 일단 NULL
+  VkRenderPass renderPass; // 랜더 페스
+  VkFramebuffer framebuffer; // 프레임 버퍼
+  VkRect2D renderArea; // 랜더페스에의해 영향받을 영역
+  uint32_t clearValueCount; // 클리어 값의 개수
+  const VkClearValue* pClearValues; // 정의한 클리어 값의 변수 및 포인터
+} VkRenderPassBeginInfo;
+```
+
+설정은 아래와 같이 한다.
+```cpp
+// 클리어 색상을 정의하기 위한 변수를 선언합니다.
+VkClearValue clear_value;
+// 클리어 색상을 정의합니다.
+clear_value.color.float32[0] = 1.0f; // R
+clear_value.color.float32[1] = 1.0f; // G
+clear_value.color.float32[2] = 0.0f; // B
+clear_value.color.float32[3] = 1.0f; // A
+
+// 렌더 패스를 어떻게 시작할지 정의합니다.
+VkRenderPassBeginInfo render_pass_begin_info {};
+render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+render_pass_begin_info.renderPass = render_pass_;
+render_pass_begin_info.framebuffer = framebuffers_[swapchain_index];
+render_pass_begin_info.renderArea.extent = swapchain_image_extent_;
+render_pass_begin_info.clearValueCount = 1;
+render_pass_begin_info.pClearValues = &clear_value;
+```
+
+이제 위에 말했던 함수를 콜할 수 있다.
+```cpp
+// 렌더 패스를 시작합니다.
+vkCmdBeginRenderPass(command_buffer_, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+```
+
+렌더링이 끝나면 아래와 같이 렌더패스를 종료시키고, 이미지 레이아웃을 다시 변경해주어야 한다.
+
+```cpp
+void vkCmdEndRenderPass( VkCommandBuffer commandBuffer);
+
+// 이미지 배리어를 정의하기 위한 변수를 선언합니다.
+VkImageMemoryBarrier barrier {};
+// 이미지 배리어를 정의합니다. 이미지를 화면에 출력하기 위해서는
+// 이미지 레이아웃이 반드시 아래 레이아웃 중에 한 레이아웃이어야 합니다.
+// - PRESENT_SRC_KHR
+// - SHARED_PRESENT_KHR
+barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+barrier.dstAccessMask = 0;
+barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+barrier.srcQueueFamilyIndex = queue_family_index_;
+barrier.dstQueueFamilyIndex = queue_family_index_;
+barrier.image = swapchain_image;
+barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+barrier.subresourceRange.levelCount = 1;
+barrier.subresourceRange.layerCount = 1;
+
+// 이미지 레이아웃 변경을 위한 파이프라인 배리어 커맨드를 기록합니다.
+vkCmdPipelineBarrier(
+  command_buffer_,
+  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+  0,
+  0,
+  nullptr,
+  0,
+  nullptr,
+  1,
+  &barrier);
+```
+
+만약 GL이었다면 아래와 같이 수행하게된다.
+
+```cpp
+glBindFramebuffer(framebuffer);
+glClear(GL_COLOR_BUFFER_BIT);
+```

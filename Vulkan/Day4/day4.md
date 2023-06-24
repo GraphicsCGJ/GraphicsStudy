@@ -527,8 +527,8 @@ typedef enum VkSamplerAddressMode {
 } VkSamplerAddressMode;
 ```
 
-<img src="./filter.jpg" width="100%"/>
-<img src="./addressMode.png" width="100%"/>
+<img src="./filter.jpg" width="50%"/>
+<img src="./addressMode.png" width="50%"/>
 
 ```c++
 VkResult vkCreateSampler(
@@ -718,3 +718,400 @@ vkCmdBindDescriptorSets(command_buffer_,
                         0, nullptr);
 ```
 [샘플 코드 링크](https://github.com/daemyung/ogl_to_vlk/blob/master/chapter13/main.cpp)
+
+# 파이프라인 베리어
+
+ - 벌칸 파이프라인 베리어는 스펙의 이해가 어렵고 벤더마다 구현 방식이 다르기에 어렵다
+ - 벌칸은 사용자가 직접 베리어를 관리할 수 있도록 해서 최적화가 가능하다.
+ - 하지만 제대로 사용하지 않으면 성능 하락의 원인이 될 수 있다.
+
+## stage bits
+
+```c++
+typedef enum VkPipelineStageFlagBits {
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT = 0x00000001,
+    VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT = 0x00000002,
+    VK_PIPELINE_STAGE_VERTEX_INPUT_BIT = 0x00000004,
+    VK_PIPELINE_STAGE_VERTEX_SHADER_BIT = 0x00000008,
+    VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT = 0x00000010,
+    VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT = 0x00000020,
+    VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT = 0x00000040,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT = 0x00000080,
+    VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT = 0x00000100,
+    VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT = 0x00000200,
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT = 0x00000400,
+    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT = 0x00000800,
+    VK_PIPELINE_STAGE_TRANSFER_BIT = 0x00001000,
+    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT = 0x00002000,
+    VK_PIPELINE_STAGE_HOST_BIT = 0x00004000,
+    VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT = 0x00008000,
+    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT = 0x00010000,
+    VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT = 0x01000000,
+    VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT = 0x00040000,
+    VK_PIPELINE_STAGE_COMMAND_PROCESS_BIT_NVX = 0x00020000,
+    VK_PIPELINE_STAGE_SHADING_RATE_IMAGE_BIT_NV = 0x00400000,
+    VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV = 0x00200000,
+    VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV = 0x02000000,
+    VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV = 0x00080000,
+    VK_PIPELINE_STAGE_MESH_SHADER_BIT_NV = 0x00100000,
+    VK_PIPELINE_STAGE_FRAGMENT_DENSITY_PROCESS_BIT_EXT = 0x00800000,
+    VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+} VkPipelineStageFlagBits;
+```
+ - 플래그 비트들은 모두 파이프라인 스테이지 이름
+ - src 와 dst 에 스테이지 비트를 설정하면 의존성 생성
+
+<img src="./barrier1.png" width="50%"/>
+
+ - 이해를 돕기 위해 vertex shader 와 fragment shader 단계만 고려하자.
+ - 1 pass 파이프라인 경우 여러 compute unit 에서 실행되더라도 문제 없음.
+ - vertex shader 와 fragment shader 단계가 순차적으로 실행되기 때문
+
+ <img src="./barrier2.png" width="50%"/>
+
+ - 그림자 생성을 위한 2 pass 파이프라인
+ - 두 번째 패스 fragment shader 단계에서는 그림자 표현을 위한 그림자 뎁스맵이 필요
+ - 그림자 뎁스 맵은 첫 번재 패스가 모두 끝나야 생성
+ - GPU 는 병렬 처리에 특화 되었기 때문에 첫 번째 패스가 끝나기도 전에 두 번째 패스의 fragment shader 실행 가능
+ - 이 경우에 잘못된 결과 나타남
+
+ <img src="./barrier3.png" width="50%"/> <img src="./barrier4.gif" width="20%"/>
+
+ - 이를 막기 위해 첫 번째 패스의 최종 단계와 두 번째 패스의 fragment shader 단계의 의존성 필요
+ - 베리어를 만들어 생성 가능
+
+```c++
+// 그림자 맵을 위한 첫 번째 렌더 패스 종료.
+vkEndRenderPass();
+
+vkCmdPipelineBarrier(command_buffer_,
+                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                     ...);
+// 그림자 맵핑을 위한 두 번째 렌더 패스 시작.
+vkBeginRenderPass(...);
+```
+
+```c++
+vkCmdPipelineBarrier(command_buffer_,
+                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                     VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                     /* ... */);
+```
+
+ - 그러나 파이프 라인 베리어를 잘못 생성한다면 성능 저하 가능
+ - 과거 언리얼 엔진은 렌더 패스 최종 단계와 모든 셰이더와의 베리어 생성
+ - 하지만 이전 패스에서 생성한 맵 정보는 다음 패스 fragment shader 에서 사용
+ - 따라서 vertex shader bit 제거 해야함
+
+<img src="./unreal1.gif" width="40%"/> <img src="./unreal2.gif" width="40%"/>
+
+ - 잘못된 베리어를 사용한 예와, 수정한 예
+ - 필요하지 않은 곳에 베리어 사용사 성능 저하가 발생
+
+
+# 벌칸의 버퍼링 (스왑체인)
+
+<img src="./buffering.png" width="40%"/>
+
+<img src="./tearing.png" width="50%"/>
+
+- 보통 렌더링 파이프라인에서 여러개의 버퍼를 생성, 하나의 버퍼가 화면에 출력중이라면 다른 버퍼를 이용해 렌더링을 수행
+- 이렇게 여분의 버퍼를 두어서 GPU 가 쉬지않고 렌더링을 할 수 있도록 만든다.
+- 만일 하나의 버퍼만 사용한다면 티어링 문제 발생 가능
+- 벌칸에서는 스왑체인 정의시 `minInageCount`를 통해 몇개의 버퍼링을 사용할지 정의
+- 몇개의 버퍼링을 사용할지 정의했다면 그에 필요한 몇 개의 정보들도 개수에 맞게 생성해야 한다.
+- 커맨드 버퍼, 유니폼 버퍼, 디스크립터 셋, 디스크립터 풀
+
+## swapchain
+
+```c++
+// 버퍼링을 위한 스왑체인 이미지 개수를 정의합니다.
+constexpr auto swapchain_image_count {2};
+
+// 생성하려는 스왑체인을 정의합니다.
+VkSwapchainCreateInfoKHR create_info {};
+
+create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+create_info.surface = surface_;
+create_info.minImageCount = swapchain_image_count;
+create_info.imageFormat = surface_format.format;
+create_info.imageColorSpace = surface_format.colorSpace;
+create_info.imageExtent = swapchain_image_extent_;
+create_info.imageArrayLayers = 1;
+create_info.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+create_info.preTransform = surface_capabilities.currentTransform;
+create_info.compositeAlpha = composite_alpha;
+create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+// 스왑체인 생성
+auto result = vkCreateSwapchainKHR(device_, &create_info, nullptr, &swapchain_);
+// 더 많은 이미지가 생성됐을 가능성이 있기에 생성된 이미지 개수 확인
+uint32_t count;
+vkGetSwapchainImagesKHR(device_, swapchain_, &count, nullptr);
+// 해당 이미지 개수만큼 리사이즈
+swapchain_images_.resize(count);
+vkGetSwapchainImagesKHR(device_, swapchain_, &count, &swapchain_images_[0]);
+```
+
+ - 원하는 버퍼링 개수만큼 swapchain image 생성
+ - 더 많이 생성 됐을 가능성이 있으니 생성된 이미지 개수 확인
+
+## command buffer
+ - 커맨드 버퍼가 버퍼링 개수 만큼 있지 않고 1개만 있다면
+ - 버퍼링을 위해 커맨드 버퍼를 제출 하더라도 이전 커맨드가 아직 다 수행되지 않았을 가능성 존재
+ - 따라서 버퍼링 개수만큼 커맨드 버퍼도 필요
+ - 커맨드 버퍼의 개수가 늘어난 만큼 해당 커맨드 버퍼와 동기화를 해주는 펜스도 커맨드 버퍼만큼 필요
+ - 커맨드 버퍼의 처리 확인
+ - 마찬가지로 커맨드 버퍼 개수 만큼 세마포어도 필요
+ - 스왑체인 이미지 시그널 확인용 (이미지가 준비 됐는지, 렌더가 완료 됐는지)
+```c++
+VkCommandBufferAllocateInfo allocate_info {};
+
+allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+allocate_info.commandPool = command_pool_;
+allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+// 버퍼링을 위해서 스왑체인 이미지의 개수만큼 커맨드 버퍼를 생성합니다.
+allocate_info.commandBufferCount = swapchain_image_count;
+
+// 커맨드 버퍼를 생성합니다.
+auto result = vkAllocateCommandBuffers(device_, &allocate_info, &command_buffers_[0]);
+switch (result) {
+    case VK_ERROR_OUT_OF_HOST_MEMORY:
+        cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+        break;
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+        cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+        break;
+    default:
+        break;
+}
+assert(result == VK_SUCCESS);
+// 생성하려는 펜스를 정의합니다.
+VkFenceCreateInfo create_info {};
+
+create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+// 커맨드 버퍼가 모두 처리 되었는지를 알기 위해 사용된 펜스는 처음에 시그널 상태면 어플리케이션의 로직이 단순해집니다.
+create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+// 버퍼링을 위해서 스왑체인 이미지의 개수만큼 펜스를 생성합니다.
+for (auto& fence : fences_) {
+    auto result = vkCreateFence(device_, &create_info, nullptr, &fence);
+    switch (result) {
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+            break;
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+            break;
+        default:
+            break;
+    }
+    assert(result == VK_SUCCESS);
+}
+
+// 생성하려는 세마포어를 정의합니다.
+VkSemaphoreCreateInfo create_info {};
+
+create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+// 버퍼링을 위해서 스왑체인 이미지의 개수 * 2만큼 세마포어를 생성합니다.
+// 한 개의 스왑체인 이미지를 위해 2개의 세마포어가 필요합니다.
+// - 첫 번째 세마포어는 스왑체인 이미지가 준비된 후에 제출한 커맨드 버퍼가 처리되기 위해 사용됩니다.
+// - 두 번째 세마포어는 제출한 커맨드 버퍼가 처리된 후에 화면에 출력을 하기 위해 사용됩니다.
+for (auto& semaphores : semaphores_) {
+    for (auto& semaphore : semaphores) {
+        auto result = vkCreateSemaphore(device_, &create_info, nullptr, &semaphore);
+        switch (result) {
+            case VK_ERROR_OUT_OF_HOST_MEMORY:
+                cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+                break;
+            case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+                cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+                break;
+            default:
+                break;
+        }
+        assert(result == VK_SUCCESS);
+    }
+}
+```
+
+## Uniform buffer
+
+ - 유니폼 버퍼도 커맨드 버퍼 개수 만큼 필요
+ - 보통 유니폼 버퍼는 매 프레임 마다 값이 달라 질 수 있다.
+ - 만일 동일 유니폼 버퍼를 사용한다면 맞지 않은 메모리를 참조할 수 있다.
+ - 아래 삼각형은 버퍼링 도중 단일 유니폼 버퍼를 사용하여 잘못 렌더링 되었다.
+ - 샘플러를 사용한다면 
+
+ <img src="./uniformBuffer.png" width="40%"/>
+ <img src="./invalidTriangle.png" width="40%"/>
+
+```c++
+// 각 프레임에 해당하는 유니폼 버퍼를 생성합니다.
+for (auto i = 0; i != swapchain_image_count; ++i) {
+    // 생성하려는 유니폼 버퍼를 정의합니다.
+    VkBufferCreateInfo create_info {};
+
+    create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    create_info.size = sizeof(Material);
+    create_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+    // 버퍼를 생성합니다.
+    auto result = vkCreateBuffer(device_, &create_info, nullptr, &uniform_buffers_[i]);
+    switch (result) {
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+            break;
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+            break;
+        default:
+            break;
+    }
+    assert(result == VK_SUCCESS);
+
+    // 메모리 요구사항을 얻어올 변수를 선언합니다.
+    VkMemoryRequirements requirements;
+
+    // 버퍼를 위해 필요한 메모리 요구사항을 얻어옵니다.
+    vkGetBufferMemoryRequirements(device_, vertex_buffer_, &requirements);
+
+    // 할당하려는 메모리를 정의합니다.
+    VkMemoryAllocateInfo alloc_info {};
+
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = requirements.size;
+    // CPU에서 접근 가능하고 CPU와 GPU의 메모리 동기화가 보장되는 메모리 타입을 선택합니다.
+    alloc_info.memoryTypeIndex = find_memory_type_index(requirements,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    // 메모리를 할당합니다.
+    result = vkAllocateMemory(device_, &alloc_info, nullptr, &uniform_device_memories_[i]);
+    switch (result) {
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+            break;
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+            break;
+        case VK_ERROR_TOO_MANY_OBJECTS:
+            cout << "VK_ERROR_TOO_MANY_OBJECTS" << endl;
+            break;
+        default:
+            break;
+    }
+    assert(result == VK_SUCCESS);
+
+    // 버퍼와 메모리를 바인드합니다.
+    result = vkBindBufferMemory(device_, uniform_buffers_[i], uniform_device_memories_[i], 0);
+    switch (result) {
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+            break;
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+            break;
+        default:
+            break;
+    }
+    assert(result == VK_SUCCESS);
+}
+```
+
+## Descriptor set
+
+<img src="./uniformBuffer2.png" width="40%"/>
+
+ - 유니폼 버퍼를 스왑체인 개수만큼 생성했다면 사진과 같은 구조로 될 것
+ - 유니폼 버퍼를 스왑체인 개수만큼 생성했다면 descriptor set 도 개수만큼 추가로 할당필요
+ - 먼저 Descriptor pool 크기를 수정하고 descriptor set 을 할당 받아야 한다.
+
+```c++
+/ 각 프레임에 해당하는 디스크립터 셋을 할당하기 위해 데스크립터 풀 크기를 변경합니다.
+vector<VkDescriptorPoolSize> pool_size {
+    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
+    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}
+};
+// 동일한 이미지와 샘플러를 사용하는데 combined image sampler 도 버퍼링의 개수만큼 필요한가?
+// 생성하려는 디스크립터 풀을 정의합니다.
+VkDescriptorPoolCreateInfo create_info {};
+
+create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+// 유니폼 버퍼와 컴바인드 이미지 샘플러를 위한 디스크립터 셋이 2개 * 버퍼링의 개수만큼 필요합니다.
+create_info.maxSets = 4;
+create_info.poolSizeCount = pool_size.size();
+create_info.pPoolSizes = &pool_size[0];
+
+// 디스크립터 풀을 생성합니다.
+auto result = vkCreateDescriptorPool(device_, &create_info, nullptr, &descriptor_pool_);
+switch (result) {
+    case VK_ERROR_OUT_OF_HOST_MEMORY:
+        cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+        break;
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+        cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+        break;
+    default:
+        break;
+}
+
+// 각 프레임에 해당하는 디스크립터 셋을 할당 받습니다.
+for (auto i = 0; i != swapchain_image_count; ++i) {
+    {
+        // 할당 받으려는 디스크립터 셋을 정의합니다.
+        VkDescriptorSetAllocateInfo allocate_info {};
+
+        allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocate_info.descriptorPool = descriptor_pool_;
+        allocate_info.descriptorSetCount = 1;
+        allocate_info.pSetLayouts = &material_descriptor_set_layout_;
+
+        // 디스크립터 셋을 할당 받습니다.
+        auto result = vkAllocateDescriptorSets(device_, &allocate_info, &material_descriptor_sets_[i]);
+        switch (result) {
+            case VK_ERROR_OUT_OF_HOST_MEMORY:
+                cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+                break;
+            case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+                cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+                break;
+            case VK_ERROR_OUT_OF_POOL_MEMORY:
+                cout << "VK_ERROR_OUT_OF_POOL_MEMORY" << endl;
+                break;
+            default:
+                break;
+        }
+        assert(result == VK_SUCCESS);
+    }
+
+    {
+        // 할당 받으려는 디스크립터 셋을 정의합니다.
+        VkDescriptorSetAllocateInfo allocate_info {};
+
+        allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocate_info.descriptorPool = descriptor_pool_;
+        allocate_info.descriptorSetCount = 1;
+        allocate_info.pSetLayouts = &texture_descriptor_set_layout_;
+
+        // 디스크립터 셋을 할당 받습니다.
+        auto result = vkAllocateDescriptorSets(device_, &allocate_info, &texture_descriptor_sets_[i]);
+        switch (result) {
+           case VK_ERROR_OUT_OF_HOST_MEMORY:
+               cout << "VK_ERROR_OUT_OF_HOST_MEMORY" << endl;
+               break;
+           case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+               cout << "VK_ERROR_OUT_OF_DEVICE_MEMORY" << endl;
+               break;
+           case VK_ERROR_OUT_OF_POOL_MEMORY:
+               cout << "VK_ERROR_OUT_OF_POOL_MEMORY" << endl;
+               break;
+           default:
+               break;
+        }
+        assert(result == VK_SUCCESS);
+    }
+}
+```

@@ -516,18 +516,18 @@ struct ShaderData {
 
 
 
-### 4. render()
+## 4. render()
 준비가 모두 끝났다면 render함수가 매 프레임 호출이 된다.
 
 카메라 관련 정보는 **nextFrame()** 에서 갱신이 된다.
 
-#### 4.1. Fence
+### 4.1. Fence
 현재 프레임의 Fence를 기다린다.
 
-#### 4.2. acquire image Index
+### 4.2. acquire image Index
 현재 프레임의 Image index를 가져온다.
 
-#### 4.3 shaderData 설정
+### 4.3 shaderData 설정
 카메라 관련 정보들을 통해 mvp 관련 데이터를 유니폼 버퍼에 넘긴다.
 ```c++
 memcpy(uniformBuffers[currentBuffer].mapped, &shaderData, sizeof(ShaderData));
@@ -536,16 +536,16 @@ memcpy(uniformBuffers[currentBuffer].mapped, &shaderData, sizeof(ShaderData));
 앞 단계에서 메모리 상에 매핑되고 있는 위치를 지정해주었기 때문에 memcpy만 해주어도 알아서
  넘어가도록 되어있다.
 
-#### 4.4 Fence 리셋
+### 4.4 Fence 리셋
 시그널된 Fence를 언시그널시켜준다.
 
-#### 4.5 커맨드 버퍼 리셋
+### 4.5 커맨드 버퍼 리셋
 현재 버퍼의 커맨드 버퍼를 리셋시켜 비워버린다.
 
-#### 4.6 커맨드 버퍼 만들기
+### 4.6 커맨드 버퍼 만들기
 커맨드 버퍼를 만든다.
 
-#### 4.7 랜더패스정보 초기화
+### 4.7 랜더패스정보 초기화
 렌더패스 정보에는 초기화할 Uniform값이 포함된다. (load_op_clear)
 
 clear할 어태치먼트는 color / depth 2개이다.
@@ -554,32 +554,32 @@ clear할 어태치먼트는 color / depth 2개이다.
 
 그리고 랜더패스 begin 커맨드를 버퍼에 제출한다.
 
-#### 4.8 뷰폿 설정 / Scissor 정보 커맨드 설정
+### 4.8 뷰폿 설정 / Scissor 정보 커맨드 설정
 
 뷰폿 설정 관련 커맨드를 보내고 Scissor 정보를 보낸다.
 다만 본 코드는 뷰폿과 동일한 Rect2D가 가므로 큰 영향이 없어보인다.
 
-#### 4.9 descriptorSet 바인딩 커맨드 설정
+### 4.9 descriptorSet 바인딩 커맨드 설정
 디스크립터 셋을 바인딩 해준다.
 쉐이더는 이 디스크립터 셋을 통해 draw를 수행하게 된다.
 
-#### 4.10 파이프라인 바인딩 커맨드 설정
+### 4.10 파이프라인 바인딩 커맨드 설정
 바인딩할 파이프라인을 설정한다.
 
-#### 4.11 Vertex 관련 커맨드 설정
+### 4.11 Vertex 관련 커맨드 설정
 버퍼 및 Index 정보를 담은 커맨드를 설정한다.
 
-#### 4.12 렌더패스 종료 커맨드 설정 및 커맨드 버퍼 종료
+### 4.12 렌더패스 종료 커맨드 설정 및 커맨드 버퍼 종료
 
 ```c++
 vkCmdEndRenderPass(commandBuffers[currentBuffer]);
 VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffers[currentBuffer]));
 ```
 
-#### 4.13 커맨드를 큐에 제출
+### 4.13 커맨드를 큐에 제출
 
  ```VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT``` 스테이지에서 present 세마포어는 기다리고 rendering 세마포어는 설정하도록 제출 정보를 설정하여 제출한다.
 
-#### 4.14 Present
+### 4.14 Present
 
 앞선 커맨드 버퍼가 끝날 경우 rendering 세마포어가 시그널 될 것이므로 rendernig 세마포어를 기다리는 Present 명령을 큐에 제출한다.

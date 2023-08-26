@@ -36,6 +36,214 @@ void prepare() {
 
 ### loadAssets
 
+`loadAsset` 중 `loadFromFile` 함수가 하는 역할에 대해 살펴본다. FILE 로 부터 메모리에 로드하는 과정은 우선 생략
+```c++
+size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
+size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
+indices.count = static_cast<uint32_t>(indexBuffer.size());
+vertices.count = static_cast<uint32_t>(vertexBuffer.size());
+
+assert((vertexBufferSize > 0) && (indexBufferSize > 0));
+
+struct StagingBuffer {
+  VkBuffer buffer;
+  VkDeviceMemory memory;
+} vertexStaging, indexStaging;
+
+// Create staging buffers
+// Vertex data
+VK_CHECK_RESULT(device->createBuffer(
+  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+  vertexBufferSize,
+  &vertexStaging.buffer,
+  &vertexStaging.memory,
+  vertexBuffer.data()));
+// Index data
+VK_CHECK_RESULT(device->createBuffer(
+  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+  indexBufferSize,
+  &indexStaging.buffer,
+  &indexStaging.memory,
+  indexBuffer.data()));
+
+// Create device local buffers
+// Vertex buffer
+VK_CHECK_RESULT(device->createBuffer(
+    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
+  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+  vertexBufferSize,
+  &vertices.buffer,
+  &vertices.memory));
+// Index buffer
+VK_CHECK_RESULT(device->createBuffer(
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
+  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+  indexBufferSize,
+  &indices.buffer,
+  &indices.memory));
+
+// Copy from staging buffers
+VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+VkBufferCopy copyRegion = {};
+
+copyRegion.size = vertexBufferSize;
+vkCmdCopyBuffer(copyCmd, vertexStaging.buffer, vertices.buffer, 1, &copyRegion);
+
+copyRegion.size = indexBufferSize;
+vkCmdCopyBuffer(copyCmd, indexStaging.buffer, indices.buffer, 1, &copyRegion);
+
+device->flushCommandBuffer(copyCmd, transferQueue, true);
+
+vkDestroyBuffer(device->logicalDevice, vertexStaging.buffer, nullptr);
+vkFreeMemory(device->logicalDevice, vertexStaging.memory, nullptr);
+vkDestroyBuffer(device->logicalDevice, indexStaging.buffer, nullptr);
+vkFreeMemory(device->logicalDevice, indexStaging.memory, nullptr);
+```
+우선 파일 로드 한 이후 vertex buffer 와 index buffer 에 메모리를 올리도록 한다.
+1. local bit 로 vertex buffer, index buffer 생성
+2. staging buffer 를 생성하여 메모리 매핑, 메모리 복사
+3. staging buffer 에서 vertex, index 버퍼로 메모리 복사 (커맨드 버퍼 사용)
+4. 모든 커맨드가 flush 되면 staging 버퍼 해제
+
+```c++
+// Setup descriptors
+uint32_t uboCount{ 0 };
+uint32_t imageCount{ 0 };
+for (auto node : linearNodes) {
+  if (node->mesh) {
+    uboCount++;
+  }
+}
+// mesh 별로 ubo 카운트
+for (auto material : materials) {
+  if (material.baseColorTexture != nullptr) {
+    imageCount++;
+  }
+}
+// material 별로 image sampler 카운트
+std::vector<VkDescriptorPoolSize> poolSizes = {
+  { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uboCount },
+};
+if (imageCount > 0) {
+  if (descriptorBindingFlags & DescriptorBindingFlags::ImageBaseColor) {
+    poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageCount });
+  }
+  if (descriptorBindingFlags & DescriptorBindingFlags::ImageNormalMap) {
+    poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageCount });
+  }
+}
+// image color, normal map 사용시 combined image sampler 를 pool 에 추가
+VkDescriptorPoolCreateInfo descriptorPoolCI{};
+descriptorPoolCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+descriptorPoolCI.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+descriptorPoolCI.pPoolSizes = poolSizes.data();
+descriptorPoolCI.maxSets = uboCount + imageCount;
+VK_CHECK_RESULT(vkCreateDescriptorPool(device->logicalDevice, &descriptorPoolCI, nullptr, &descriptorPool));
+
+// Descriptors for per-node uniform buffers
+{
+  // Layout is global, so only create if it hasn't already been created before
+  if (descriptorSetLayoutUbo == VK_NULL_HANDLE) {
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+      vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0),
+    };
+    VkDescriptorSetLayoutCreateInfo descriptorLayoutCI{};
+    descriptorLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorLayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    descriptorLayoutCI.pBindings = setLayoutBindings.data();
+    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device->logicalDevice, &descriptorLayoutCI, nullptr, &descriptorSetLayoutUbo));
+  }
+  for (auto node : nodes) {
+	// descriptor set allocate and update descriptor sets
+    //prepareNodeDescriptor(node, descriptorSetLayoutUbo);
+	{
+		VkDescriptorSetAllocateInfo descriptorSetAllocInfo{};
+		descriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptorSetAllocInfo.descriptorPool = descriptorPool;
+		descriptorSetAllocInfo.pSetLayouts = &descriptorSetLayout;
+		descriptorSetAllocInfo.descriptorSetCount = 1;
+		VK_CHECK_RESULT(vkAllocateDescriptorSets(device->logicalDevice, &descriptorSetAllocInfo, &node->mesh->uniformBuffer.descriptorSet));
+
+		VkWriteDescriptorSet writeDescriptorSet{};
+		writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writeDescriptorSet.descriptorCount = 1;
+		writeDescriptorSet.dstSet = node->mesh->uniformBuffer.descriptorSet;
+		writeDescriptorSet.dstBinding = 0;
+		writeDescriptorSet.pBufferInfo = &node->mesh->uniformBuffer.descriptor;
+
+		vkUpdateDescriptorSets(device->logicalDevice, 1, &writeDescriptorSet, 0, nullptr);
+	}
+  }
+}
+
+// Descriptors for per-material images
+{
+  // Layout is global, so only create if it hasn't already been created before
+  if (descriptorSetLayoutImage == VK_NULL_HANDLE) {
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
+    if (descriptorBindingFlags & DescriptorBindingFlags::ImageBaseColor) {
+      setLayoutBindings.push_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, static_cast<uint32_t>(setLayoutBindings.size())));
+    }
+    if (descriptorBindingFlags & DescriptorBindingFlags::ImageNormalMap) {
+      setLayoutBindings.push_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, static_cast<uint32_t>(setLayoutBindings.size())));
+    }
+    VkDescriptorSetLayoutCreateInfo descriptorLayoutCI{};
+    descriptorLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorLayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    descriptorLayoutCI.pBindings = setLayoutBindings.data();
+    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device->logicalDevice, &descriptorLayoutCI, nullptr, &descriptorSetLayoutImage));
+  }
+  for (auto& material : materials) {
+    if (material.baseColorTexture != nullptr) {
+      //material.createDescriptorSet(descriptorPool, vkglTF::descriptorSetLayoutImage, descriptorBindingFlags);
+	  {
+		VkDescriptorSetAllocateInfo descriptorSetAllocInfo{};
+		descriptorSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptorSetAllocInfo.descriptorPool = descriptorPool;
+		descriptorSetAllocInfo.pSetLayouts = &descriptorSetLayout;
+		descriptorSetAllocInfo.descriptorSetCount = 1;
+		VK_CHECK_RESULT(vkAllocateDescriptorSets(device->logicalDevice, &descriptorSetAllocInfo, &descriptorSet));
+		std::vector<VkDescriptorImageInfo> imageDescriptors{};
+		std::vector<VkWriteDescriptorSet> writeDescriptorSets{};
+		if (descriptorBindingFlags & DescriptorBindingFlags::ImageBaseColor) {
+			imageDescriptors.push_back(baseColorTexture->descriptor);
+			VkWriteDescriptorSet writeDescriptorSet{};
+			writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			writeDescriptorSet.descriptorCount = 1;
+			writeDescriptorSet.dstSet = descriptorSet;
+			writeDescriptorSet.dstBinding = static_cast<uint32_t>(writeDescriptorSets.size());
+			writeDescriptorSet.pImageInfo = &baseColorTexture->descriptor;
+			writeDescriptorSets.push_back(writeDescriptorSet);
+		}
+		if (normalTexture && descriptorBindingFlags & DescriptorBindingFlags::ImageNormalMap) {
+			imageDescriptors.push_back(normalTexture->descriptor);
+			VkWriteDescriptorSet writeDescriptorSet{};
+			writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			writeDescriptorSet.descriptorCount = 1;
+			writeDescriptorSet.dstSet = descriptorSet;
+			writeDescriptorSet.dstBinding = static_cast<uint32_t>(writeDescriptorSets.size());
+			writeDescriptorSet.pImageInfo = &normalTexture->descriptor;
+			writeDescriptorSets.push_back(writeDescriptorSet);
+		}
+		vkUpdateDescriptorSets(device->logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+      }
+	}
+  }
+}
+```
+
+위의 과정들은 모두 파일 로드 이후 mesh, material 에서 필요한 ubo, combined_image_sampler 들을 설정하고 있다.
+1. descriptor pool 생성
+2. descriptor layout 생성
+3. descriptor pool 로 부터 필요한 descriptor set 할당
+4. ubo 든 combined image sampler 든 할당받은 descriptor set 에 필요한 정보들 update (uniform buffer 사용하기 위한 준비)
+
 ### prepareOffscreenFramebuffer
 다음으로는 shadow map 생성에 사용될 frame buffer 를 만듣도록 한다.
 ```c++
@@ -548,6 +756,9 @@ Depth attachment clear value 를 설정하여 render pass 를 시작한다.
 				// Render the shadows scene
 				vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets.scene, 0, nullptr);
 				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, (filterPCF) ? pipelines.sceneShadowPCF : pipelines.sceneShadow);
+				// 앞서 로드한 asset 정보들을 이용
+				// vertex buffer bind, index buffer bind
+				// 그리고 node, material 에 필요한 ubo, combined image sampler 용 descriptor set 도 바인딩
 				scenes[sceneIndex].draw(drawCmdBuffers[i]);
 			}
 			drawUI(drawCmdBuffers[i]);

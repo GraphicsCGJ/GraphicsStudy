@@ -82,6 +82,12 @@ static void parent_job(int input) {
 }
 
 int main(void) {
+    /* 0 - stdin
+       1 - stdout
+       2 - stderr
+       3 - readpipe
+       4 - writepipe
+    */
     pipe(pipes);
 
     int pid = fork();
